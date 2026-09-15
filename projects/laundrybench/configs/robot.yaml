@@ -1,0 +1,8 @@
+robot:
+  implementation: mock
+  hardware_target: so101
+  follower_port: null
+  leader_port: null
+  safety:
+    max_episode_seconds: 30
+    require_manual_supervision: true
