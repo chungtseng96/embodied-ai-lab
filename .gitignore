@@ -1,0 +1,33 @@
+# Python
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.venv/
+venv/
+.env
+
+# Build / package
+*.egg-info/
+dist/
+build/
+
+# Local artifacts
+artifacts/
+outputs/
+runs/
+*.mp4
+*.mov
+*.avi
+*.ckpt
+*.pt
+*.pth
+*.safetensors
+
+# Datasets
+projects/laundrybench/data/raw/
+projects/laundrybench/data/processed/
+
+# Editors / OS
+.DS_Store
+.vscode/
+.idea/
