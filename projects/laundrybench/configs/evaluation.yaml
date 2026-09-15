@@ -1,0 +1,12 @@
+evaluation:
+  attempts_per_condition: 10
+  max_steps: 20
+  record_video: true
+  record_joint_state: true
+  record_policy_metadata: true
+  require_manual_success_label: true
+  metrics:
+    - success_rate
+    - completion_time_seconds
+    - human_intervention_rate
+    - failure_category_counts
