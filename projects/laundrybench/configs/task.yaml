@@ -1,0 +1,13 @@
+task:
+  name: sock_sorting_v1
+  description: Identify a sock, pick it up, and place it in the sock basket.
+  timeout_seconds: 30
+  success_criteria:
+    - sock ends inside designated sock basket
+    - no human intervention during attempt
+  environment:
+    object_count: 2
+    sock_count: 1
+    non_sock_count: 1
+    overlapping_garments: false
+    basket_locations_fixed: true
