@@ -1,7 +1,7 @@
 # Adopt AI-agent-friendly repo patterns
 
 **Date:** 2026-09-18
-**Status:** Tiers 1 and 2 implemented 2026-09-18 on branch `adopt-agent-patterns`; Tier 3 proposed
+**Status:** Tiers 1 and 2 implemented 2026-09-18 on branch `adopt-agent-patterns`; Tier 3 is on demand
 **Sources audited:** `Underdog-Inc/ranger`, `Underdog-Inc/ai-platform`, `Underdog-Inc/api` (local clones under `~/Desktop/repos/`)
 **Scope:** this repo is a solo Python learning + robotics lab. Patterns built for large polyglot monorepos (CI aggregators, CODEOWNERS, Copilot sync hooks, risk gates) are deliberately left out. Only patterns that pay off at this size are listed.
 
@@ -61,14 +61,18 @@ All three converge on the same skeleton, independently:
 | 17 | `tests/test_experiment_docs.py`: every `experiments/exp-*/README.md` has the required headings and a `Hardware:` line | api docs-check, ai-platform validate-datadog | Folded into `make check` rather than a separate target. Written red-first: failed on EXP-001/002 until their headers were added. |
 | 18 | Maintenance clause in nested AGENTS.md ("if you change the Robot/Policy contract, update this file and CONTEXT.md") | api pack CLAUDE.md "Maintenance" | Done in Tier 1. |
 
-### Tier 3 — when hardware and LeRobot land
+### Tier 3 — on demand, triggered by a real miss
 
-| # | Item | Borrowed from |
-|---|------|---------------|
-| 19 | Pinned-versions table with a "key constraint" column (Python, LeRobot, torch, SO-101 firmware) | api frontend CLAUDE.md, ai-platform phoenix-docs-explorer |
-| 20 | Version-pinned docs-research subagent for LeRobot ("answers must match the pinned version; say proven vs inferred") | ai-platform `.claude/agents/phoenix-docs-explorer.md` |
-| 21 | Read-only review subagent for the safety-critical path (robot motion limits) with the "do not claim the test passed if you couldn't run it" clause | ai-platform `collector-allowlist-reviewer` |
-| 22 | Skill evals (regression suite for skill routing) | api sportradar evals | Only once skills are load-bearing. |
+Not scheduled. Tier 2 showed that guessing at failures produces work the template already covers.
+Add an item here only after an agent actually fails at it in this repo. Item 19 is seeded now
+because the table costs one edit and the pins already exist.
+
+| # | Item | Borrowed from | Notes |
+|---|------|---------------|-------|
+| 19 | Pinned-versions table with a "key constraint" column | api frontend CLAUDE.md, ai-platform phoenix-docs-explorer | Seeded in `laundrybench/AGENTS.md` with today's pins; add a LeRobot / torch row the day they become a dependency. |
+| 20 | Version-pinned docs-research subagent for LeRobot | ai-platform `.claude/agents/phoenix-docs-explorer.md` | Only after a LeRobot API-version mismatch actually costs time. |
+| 21 | Read-only review subagent for the safety-critical path | ai-platform `collector-allowlist-reviewer` | Only once a real motion-limits module exists. Until then `require_manual_supervision: true` and the Don'ts cover it. |
+| 22 | Skill evals | api sportradar evals | No skills exist (item 14). Nothing to eval. |
 
 ### Deliberately not adopting
 

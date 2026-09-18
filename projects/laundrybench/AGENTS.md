@@ -26,6 +26,19 @@ experiments/exp-NNN-slug/README.md
 **Tiebreaker:** if any doc disagrees with `robot/base.py` or `policies/base.py`, the code wins.
 `robot/mock.py` and `policies/mock.py` are the reference implementations of those Protocols.
 
+## Pinned versions
+
+Source of truth is `pyproject.toml` and `.github/workflows/ci.yml`. Update this table in the same
+change when a pin moves; the "key constraint" column is what an agent must not get wrong.
+
+| Dependency | Version | Key constraint |
+|------------|---------|----------------|
+| Python | >= 3.11 (CI runs 3.11) | `dataclass(slots=True)` and `X \| None` syntax are used; do not target older Pythons |
+| pyyaml | >= 6.0 | only runtime dependency; nothing loads the YAML yet |
+| pytest | >= 8.0 | plain pytest, no plugins or fixtures |
+| ruff | >= 0.6 | line length 100; the only linter and formatter |
+| LeRobot / torch | not yet a dependency | add as an optional extra with an exact pin and a row here before importing it |
+
 ## Adding a real Robot or Policy
 
 1. New module under `robot/` or `policies/` that satisfies the Protocol in `base.py`.
