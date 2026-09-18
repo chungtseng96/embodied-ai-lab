@@ -6,23 +6,16 @@ on:
   pull_request:
 
 jobs:
-  test:
+  check:
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: projects/laundrybench
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
           python-version: "3.11"
       - name: Install LaundryBench
-        run: python -m pip install -e ".[dev]"
-      - name: Lint
-        run: python -m ruff check .
-      - name: Test
-        run: python -m pytest
-      - name: Smoke-test scripts
-        run: |
-          python -m compileall -q scripts
-          python scripts/check_host_setup.py
+        run: make install
+      # Same command developers run locally. Do not add steps here that
+      # `make check` does not run; add a target to the Makefile instead.
+      - name: Gate
+        run: make check

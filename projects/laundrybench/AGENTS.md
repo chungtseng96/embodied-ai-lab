@@ -1,20 +1,110 @@
-# LaundryBench agent instructions
+# LaundryBench — agent guide
 
-This directory is the installable Python project. Keep its public boundaries
-small and explicit:
+Deep guide for the only code in this repo. Root `AGENTS.md` covers commands and conventions;
+this file covers the code. `CONTEXT.md` next to it covers vocabulary and invariants.
 
-- `src/laundrybench/robot/` owns the robot interface and adapters.
-- `src/laundrybench/policies/` owns policy interfaces and adapters.
-- `src/laundrybench/data/` owns episode and dataset-facing helpers.
-- `src/laundrybench/evaluation/` owns closed-loop runs and metrics.
-- `src/laundrybench/observability/` owns structured logs and evidence.
-- `scripts/` owns human- and agent-invocable commands.
-- `configs/` owns declarative experiment inputs.
-- `tests/` verifies behavior at the project boundary.
+## Shape of the code
 
-Use the repository root instructions for the validation commands. A change in
-this project should remain runnable with the mock robot unless it explicitly
-introduces a physical LeRobot adapter.
+```text
+src/laundrybench/
+├── types.py              Observation, Action, EpisodeResult (dataclasses, slots=True)
+├── robot/base.py         Robot Protocol: reset / observe / apply / task_success
+├── robot/mock.py         MockRobot: 6 joints, succeeds after N steps with p=0.8
+├── policies/base.py      Policy Protocol: name + act(observation) -> Action
+├── policies/mock.py      MockPolicy: ramps all joints toward 1.0
+├── evaluation/runner.py  run_episode(robot, policy, max_steps) -> EpisodeResult
+├── evaluation/metrics.py summarize(results) -> dict
+├── observability/logger.py  JsonlEpisodeLogger: append-only JSONL
+└── data/                 empty package, reserved for dataset helpers
+scripts/evaluate.py       the only working experiment entrypoint (mock loop)
+scripts/check_host_setup.py   `make host-check`: JSON report of laptop tools, always exits 0
+scripts/check_lerobot.py      `make lerobot-check`: fails unless Python 3.12 + lerobot importable
+scripts/{record,train,run_policy}.py   stubs that raise SystemExit
+configs/*.yaml            intent only, nothing reads them yet
+tests/test_{runner,metrics,logger}.py
+experiments/exp-NNN-slug/README.md
+```
 
-Do not import LeRobot into the core package just to make a placeholder work.
-Keep the dependency optional until a real adapter has a tested contract.
+**Tiebreaker:** if any doc disagrees with `robot/base.py` or `policies/base.py`, the code wins.
+`robot/mock.py` and `policies/mock.py` are the reference implementations of those Protocols.
+
+## Pinned versions
+
+Source of truth is `pyproject.toml` and `.github/workflows/ci.yml`. Update this table in the same
+change when a pin moves; the "key constraint" column is what an agent must not get wrong.
+
+| Dependency | Version | Key constraint |
+|------------|---------|----------------|
+| Python | >= 3.11 (CI runs 3.11) | `dataclass(slots=True)` and `X \| None` syntax are used; do not target older Pythons |
+| pyyaml | >= 6.0 | only runtime dependency; nothing loads the YAML yet |
+| pytest | >= 8.0 | plain pytest, no plugins or fixtures |
+| ruff | >= 0.6 | line length 100; the only linter and formatter |
+| LeRobot | 0.6.1 CLI in `.venv-lerobot` (Python 3.12), not a project dependency | add as an optional extra with an exact pin and a row here before importing it into `src/` |
+
+## Boundaries
+
+- `robot/` owns the robot interface and adapters; `policies/` owns policy interfaces and adapters.
+- `data/` owns episode and dataset-facing helpers; `evaluation/` owns closed-loop runs and metrics.
+- `observability/` owns structured logs and evidence; `scripts/` owns human- and agent-invocable
+  commands; `configs/` owns declarative inputs; `tests/` verifies behavior at the boundary.
+- A change here must stay runnable with the mock robot unless it explicitly introduces a
+  physical LeRobot adapter. Keep LeRobot optional until a real adapter has a tested contract.
+
+## Adding a real Robot or Policy
+
+1. New module under `robot/` or `policies/` that satisfies the Protocol in `base.py`.
+   Protocols are structural; do not subclass, just match the methods.
+2. Keep vendor imports (LeRobot, torch, serial) inside that module. Nothing else may import them.
+3. Translate vendor-specific state into `Observation` / `Action` at the boundary. If a field does
+   not fit, use `metadata`, then decide in an ADR whether it should become a first-class field.
+4. Add a test that runs `run_episode` against it with `MockPolicy` or `MockRobot` on the other
+   side, so the boundary is exercised in isolation.
+5. Update `CONTEXT.md` (glossary / parked) and this file if the contract or layout changed.
+
+## Don'ts
+
+Things that look reasonable here but are wrong.
+
+- **Don't make `run_episode` know about a specific robot or policy.** It takes Protocols.
+- **Don't add hardware or ML dependencies to `pyproject.toml` `dependencies`.** Only `pyyaml` is
+  there today. Vendor deps go in an optional extra when they arrive.
+- **Don't write a config loader "while you're in there."** `configs/*.yaml` are unloaded on
+  purpose until a script needs one. See ADR 003 and the roadmap.
+- **Don't flesh out the stub scripts.** `record.py`, `train.py`, `run_policy.py` raise on purpose.
+- **Don't treat `MockRobot` success as signal.** `task_success()` is `random() < 0.8` after N
+  steps. Tests may assert on structure and failure paths, never on success rate.
+- **Don't fill in experiment Results before the physical run.** EXP-001 and EXP-002 are
+  `Status: Planned` and say so explicitly.
+- **Don't add a `Hardware` field to `EpisodeResult` silently.** Use `metadata` until an ADR
+  promotes it.
+
+## Verifying a change
+
+```bash
+make check                          # from repo root; lint + test + smoke, same as CI
+PYTHON=projects/laundrybench/.venv/bin/python make check   # when system python3 lacks ruff/pytest
+cd projects/laundrybench && .venv/bin/python -m pytest tests/test_runner.py -q   # one file
+```
+
+Evidence for a PR is the `GATE PASS` line plus the pytest summary (`N passed`). If you added a
+failure path, say which test failed first before the fix.
+
+## When something goes wrong
+
+- **`No module named ruff` / `pytest`** — system `python3` is not the project venv. Run
+  `PYTHON=projects/laundrybench/.venv/bin/python make check` from the root (the Makefile resolves
+  a slashed `PYTHON` to an absolute path), or `make install` into a venv.
+- **`make lerobot-check` says "create a Python 3.12 environment"** — expected on stock 3.11. It is
+  not in `make check` for that reason. Use `.venv-lerobot` (see `docs/plans/so101-readiness.md`).
+- **`ModuleNotFoundError: laundrybench`** — package not installed in editable mode. `make install`.
+- **`run_episode` returns `failure_category="timeout_or_task_failure"` every time** — with
+  `MockRobot`, `success_after_steps` is >= `max_steps`. That is the intended failure path.
+- **Test asserting `success is True` is flaky** — expected; success is random. Assert on
+  structure or use `success_after_steps=1` with a seed and accept it can still fail. Better: do
+  not assert success with the mock at all.
+- **Stub script exits with a message** — that is the stub working. Nothing is broken.
+
+## Maintenance
+
+If you change the Protocols in `base.py`, `types.py`, the package layout, or the scripts'
+behavior, update the tree above, `CONTEXT.md`, and `README.md` in the same change.

@@ -1,0 +1,32 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(make check)",
+      "Bash(make lint)",
+      "Bash(make test)",
+      "Bash(make demo)",
+      "Bash(make install)",
+      "Bash(python3 -m pytest:*)",
+      "Bash(python3 -m ruff:*)",
+      "Bash(.venv/bin/python -m pytest:*)",
+      "Bash(.venv/bin/python -m ruff:*)",
+      "Bash(git status:*)",
+      "Bash(git diff:*)",
+      "Bash(git log:*)"
+    ],
+    "deny": [
+      "Edit(.claude/settings.json)",
+      "Write(.claude/settings.json)"
+    ]
+  },
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Write|Edit",
+        "hooks": [
+          { "type": "command", "command": "bash \"${CLAUDE_PROJECT_DIR}/.claude/hooks/ruff-check.sh\"", "timeout": 30 }
+        ]
+      }
+    ]
+  }
+}

@@ -1,5 +1,13 @@
 # Experiment: <name>
 
+**Date:** YYYY-MM-DD
+**Status:** Planned | Running | Complete | Abandoned
+**Hardware:** mock | physical
+**Owner:** <name>
+
+<!-- All four header fields are checked by tests/test_experiment_docs.py. Hardware must be exactly
+     `mock` or `physical`. Mock results are never robot results (see CONTEXT.md). -->
+
 ## Question
 
 What are we trying to learn?
@@ -35,6 +43,14 @@ Change one primary variable when possible.
 | Human interventions | | |
 
 ## Failure breakdown
+
+## Evidence
+
+- code/config commit:
+- command run:
+- output excerpt (raw, not paraphrased):
+- episode log path:
+- negative check (what would have failed if the change did nothing?):
 
 ## Conclusion
 

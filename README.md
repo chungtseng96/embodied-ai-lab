@@ -30,16 +30,22 @@ robot experience
 ```text
 embodied-ai-lab/
 ├── START-HERE.md
+├── AGENTS.md               # entry point for AI agents (CLAUDE.md links here)
 ├── ROADMAP.md
 ├── docs/
+│   ├── README.md           # which doc to read for what
 │   ├── fundamentals/       # concepts being learned
 │   ├── cheatsheets/        # fast interview/debug references
 │   ├── architecture/       # system design + ADRs
 │   ├── journal/            # learning log
+│   ├── plans/              # dated design / work plans
 │   └── templates/          # reusable notes/experiments
 ├── labs/                   # small concept -> code -> hardware exercises
+├── skills/                 # repo-local agent workflows (linked as .claude/skills)
 ├── projects/
 │   └── laundrybench/
+│       ├── AGENTS.md       # code-level agent guide
+│       ├── CONTEXT.md      # glossary, invariants, parked questions
 │       ├── configs/
 │       ├── experiments/
 │       ├── scripts/
