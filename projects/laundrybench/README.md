@@ -29,6 +29,30 @@ log success/failure
 - No overlapping garments initially
 - Manual resets are acceptable
 
+## Platform focus
+
+LaundryBench will first establish a thin end-to-end loop, then go deep on the
+evaluation and data-improvement platform around the task.
+
+```text
+physical task
+     ↓
+one working policy
+     ↓
+reproducible evaluation
+     ↓
+failure diagnosis
+     ↓
+targeted data change
+```
+
+The project will reuse LeRobot for hardware, dataset, training, and policy
+workflows. LaundryBench owns the experiment protocol, episode traces, quality
+checks, outcome labels, reports, and baseline-versus-candidate comparisons.
+
+See [LaundryBench Evaluation Platform Architecture](../../docs/architecture/evaluation-platform.md)
+for the initial design.
+
 ## Software architecture
 
 ```text
@@ -91,6 +115,8 @@ The mock robot is only a development stand-in. It lets us test experiment/evalua
 - reproducible experiments
 - evaluation and failure analysis
 - observability across video, robot state, and outcomes
+- dataset and sensor-quality checks
+- failure-driven data iteration
 - disciplined model/data iteration
 
 ## Planned progression
