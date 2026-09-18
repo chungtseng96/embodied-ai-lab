@@ -16,6 +16,6 @@ jobs:
       - name: Install LaundryBench
         run: make install
       # Same command developers run locally. Do not add steps here that
-      # `make check` does not run.
+      # `make check` does not run; add a target to the Makefile instead.
       - name: Gate
         run: make check

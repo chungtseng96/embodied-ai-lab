@@ -1,6 +1,6 @@
 # Start Here
 
-This repository is both a learning notebook and a working embodied-AI lab.
+This repository is both a learning record and a working embodied-AI lab.
 
 ## Current objective
 
@@ -14,6 +14,9 @@ Build **LaundryBench V1**: use an SO-101 robot to identify, pick up, and sort si
 4. Work through `labs/` as the hardware arrives.
 5. Build the real project in `projects/laundrybench/`.
 6. Record every meaningful model/data/config change as an experiment.
+7. Read the [SO-101 readiness plan](docs/plans/so101-readiness.md) and the
+   [development environment design](docs/architecture/robot-learning-development-environment.md)
+   before hardware bring-up.
 
 ## Working principle
 

@@ -16,7 +16,9 @@ src/laundrybench/
 ├── evaluation/metrics.py summarize(results) -> dict
 ├── observability/logger.py  JsonlEpisodeLogger: append-only JSONL
 └── data/                 empty package, reserved for dataset helpers
-scripts/evaluate.py       the only working entrypoint (mock loop)
+scripts/evaluate.py       the only working experiment entrypoint (mock loop)
+scripts/check_host_setup.py   `make host-check`: JSON report of laptop tools, always exits 0
+scripts/check_lerobot.py      `make lerobot-check`: fails unless Python 3.12 + lerobot importable
 scripts/{record,train,run_policy}.py   stubs that raise SystemExit
 configs/*.yaml            intent only, nothing reads them yet
 tests/test_{runner,metrics,logger}.py
@@ -37,7 +39,16 @@ change when a pin moves; the "key constraint" column is what an agent must not g
 | pyyaml | >= 6.0 | only runtime dependency; nothing loads the YAML yet |
 | pytest | >= 8.0 | plain pytest, no plugins or fixtures |
 | ruff | >= 0.6 | line length 100; the only linter and formatter |
-| LeRobot / torch | not yet a dependency | add as an optional extra with an exact pin and a row here before importing it |
+| LeRobot | 0.6.1 CLI in `.venv-lerobot` (Python 3.12), not a project dependency | add as an optional extra with an exact pin and a row here before importing it into `src/` |
+
+## Boundaries
+
+- `robot/` owns the robot interface and adapters; `policies/` owns policy interfaces and adapters.
+- `data/` owns episode and dataset-facing helpers; `evaluation/` owns closed-loop runs and metrics.
+- `observability/` owns structured logs and evidence; `scripts/` owns human- and agent-invocable
+  commands; `configs/` owns declarative inputs; `tests/` verifies behavior at the boundary.
+- A change here must stay runnable with the mock robot unless it explicitly introduces a
+  physical LeRobot adapter. Keep LeRobot optional until a real adapter has a tested contract.
 
 ## Adding a real Robot or Policy
 
@@ -70,7 +81,8 @@ Things that look reasonable here but are wrong.
 ## Verifying a change
 
 ```bash
-make check                          # from repo root; lint + test, same as CI
+make check                          # from repo root; lint + test + smoke, same as CI
+PYTHON=projects/laundrybench/.venv/bin/python make check   # when system python3 lacks ruff/pytest
 cd projects/laundrybench && .venv/bin/python -m pytest tests/test_runner.py -q   # one file
 ```
 
@@ -80,7 +92,10 @@ failure path, say which test failed first before the fix.
 ## When something goes wrong
 
 - **`No module named ruff` / `pytest`** — system `python3` is not the project venv. Run
-  `PYTHON=.venv/bin/python make check`, or `make install` into a venv.
+  `PYTHON=projects/laundrybench/.venv/bin/python make check` from the root (the Makefile resolves
+  a slashed `PYTHON` to an absolute path), or `make install` into a venv.
+- **`make lerobot-check` says "create a Python 3.12 environment"** — expected on stock 3.11. It is
+  not in `make check` for that reason. Use `.venv-lerobot` (see `docs/plans/so101-readiness.md`).
 - **`ModuleNotFoundError: laundrybench`** — package not installed in editable mode. `make install`.
 - **`run_episode` returns `failure_category="timeout_or_task_failure"` every time** — with
   `MockRobot`, `success_after_steps` is >= `max_steps`. That is the intended failure path.
