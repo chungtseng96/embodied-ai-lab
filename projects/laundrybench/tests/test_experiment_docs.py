@@ -1,7 +1,9 @@
 """Every experiment README must carry the fields that keep results honest.
 
 This is the repo's cheapest doc-freshness check: experiments are first-class artifacts,
-so a missing Hardware line or Status header is a defect, not a style nit.
+so a missing Hardware line or Status field is a defect, not a style nit. The contract is
+the metadata header defined in docs/templates/experiment.md, so a README copied from the
+template passes as-is.
 """
 
 from __future__ import annotations
@@ -14,8 +16,13 @@ import pytest
 EXPERIMENTS_DIR = Path(__file__).resolve().parents[1] / "experiments"
 EXPERIMENT_READMES = sorted(EXPERIMENTS_DIR.glob("exp-*/README.md"))
 
-REQUIRED_HEADINGS = ("## Question", "## Hypothesis", "## Status")
-HARDWARE_LINE = re.compile(r"^\*\*Hardware:\*\* (mock|physical)\b", re.MULTILINE)
+REQUIRED_HEADINGS = ("## Question", "## Hypothesis")
+REQUIRED_HEADER_FIELDS = {
+    "Date": re.compile(r"^\*\*Date:\*\* \S", re.MULTILINE),
+    "Status": re.compile(r"^\*\*Status:\*\* \S", re.MULTILINE),
+    "Owner": re.compile(r"^\*\*Owner:\*\* \S", re.MULTILINE),
+    "Hardware": re.compile(r"^\*\*Hardware:\*\* (mock|physical)\b", re.MULTILINE),
+}
 
 
 def test_experiments_exist() -> None:
@@ -25,9 +32,14 @@ def test_experiments_exist() -> None:
 @pytest.mark.parametrize("readme", EXPERIMENT_READMES, ids=lambda p: p.parent.name)
 def test_experiment_readme_has_required_fields(readme: Path) -> None:
     text = readme.read_text(encoding="utf-8")
-    missing = [heading for heading in REQUIRED_HEADINGS if heading not in text]
-    assert not missing, f"{readme.parent.name} is missing {missing}"
-    assert HARDWARE_LINE.search(text), (
-        f"{readme.parent.name} needs a `**Hardware:** mock | physical` line "
-        "(mock results are never robot results)"
+    missing_headings = [heading for heading in REQUIRED_HEADINGS if heading not in text]
+    assert not missing_headings, f"{readme.parent.name} is missing {missing_headings}"
+
+    missing_fields = [
+        name for name, pattern in REQUIRED_HEADER_FIELDS.items() if not pattern.search(text)
+    ]
+    assert not missing_fields, (
+        f"{readme.parent.name} header is missing {missing_fields}; "
+        "copy the header from docs/templates/experiment.md "
+        "(Hardware must be `mock` or `physical`; mock results are never robot results)"
     )

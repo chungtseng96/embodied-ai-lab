@@ -1,10 +1,12 @@
 # Experiment: <name>
 
-**Date:**
+**Date:** YYYY-MM-DD
 **Status:** Planned | Running | Complete | Abandoned
 **Hardware:** mock | physical
+**Owner:** <name>
 
-<!-- Hardware is mandatory. Mock results are never robot results (see CONTEXT.md). -->
+<!-- All four header fields are checked by tests/test_experiment_docs.py. Hardware must be exactly
+     `mock` or `physical`. Mock results are never robot results (see CONTEXT.md). -->
 
 ## Question
 
