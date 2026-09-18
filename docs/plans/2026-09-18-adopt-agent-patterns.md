@@ -1,7 +1,7 @@
 # Adopt AI-agent-friendly repo patterns
 
 **Date:** 2026-09-18
-**Status:** Tier 1 implemented 2026-09-18 on branch `adopt-agent-patterns`; Tiers 2-3 proposed
+**Status:** Tiers 1 and 2 implemented 2026-09-18 on branch `adopt-agent-patterns`; Tier 3 proposed
 **Sources audited:** `Underdog-Inc/ranger`, `Underdog-Inc/ai-platform`, `Underdog-Inc/api` (local clones under `~/Desktop/repos/`)
 **Scope:** this repo is a solo Python learning + robotics lab. Patterns built for large polyglot monorepos (CI aggregators, CODEOWNERS, Copilot sync hooks, risk gates) are deliberately left out. Only patterns that pay off at this size are listed.
 
@@ -47,7 +47,7 @@ All three converge on the same skeleton, independently:
 | 8 | Gitignored scratch dir `.claude/scratch/` | api, ranger | Document it in `AGENTS.md`. |
 | 9 | Write down commit prefixes and PR template (What / Why / How tested) | ranger #10, #44 | Prefixes already used: `docs: labs: experiments: test: chore: config: ci:`. Add `feat:` `fix:`. |
 
-### Tier 2 — next session
+### Tier 2 — implemented 2026-09-18 (see notes for deviations)
 
 | # | Item | Borrowed from | Notes |
 |---|------|---------------|-------|
@@ -55,11 +55,11 @@ All three converge on the same skeleton, independently:
 | 11 | ADR template (Status / Context / Decision / Consequences / Amends) + index `docs/architecture/decisions/README.md`; backfill 001-003 headers | ranger ADRs, api immutable ADRs | Keep "immutable, amend with a new file" rule. |
 | 12 | `docs/plans/` convention: date-prefixed, `-design` / `-plan` pairs, "For agentic workers" header, checkbox steps | ranger superpowers plans, ai-platform docs/plans | This file is the first instance. |
 | 13 | `docs/templates/loop-state.md`: Item / Status / Evidence / Next table + stop condition + `Needs James` row; gitignore `LOOP-STATE.md` | ai-platform LOOP-STATE.md, orchestration design §7 | Matches the global loop-engineering rule. |
-| 14 | `.agents/skills/` + `.claude/skills -> ../.agents/skills`; first skills: `running-an-experiment`, `adding-a-policy-adapter`, `writing-a-learning-note` | ai-platform skills, api trigger-phrase descriptions | Each `description` starts "Use when..." and lists trigger phrases and a "Do NOT use for". |
-| 15 | "When something goes wrong" table in `laundrybench/AGENTS.md` | ai-platform P12 | Populate as hardware bring-up produces real errors (serial permissions, calibration, camera index). |
-| 16 | Tiebreaker rule: `policies/base.py` and `robot/base.py` win over any doc; `mock.py` is the reference implementation | ai-platform P31 | One line in the nested AGENTS.md. |
-| 17 | `make docs-check`: pytest that every `experiments/exp-*/README.md` has the required headings and a `Hardware:` line | api docs-check, ai-platform validate-datadog | Cheapest doc-freshness mechanism that fits; experiments are the repo's first-class artifact. |
-| 18 | Maintenance clause in nested AGENTS.md ("if you change the Robot/Policy contract, update this file and CONTEXT.md") | api pack CLAUDE.md "Maintenance" | Doc freshness as part of the task, not a chore. |
+| 14 | ~~Skills~~ **Not adopted.** | ai-platform skills, api trigger-phrase descriptions | Tested first: an agent with no docs at all ran a mock experiment and only omitted the Date/Status/Owner header, raw output, and negative check. Re-run with Tier 1 docs plus the updated experiment template: every gap closed and the docs test caught the one miss. Those are template slots, not procedure; a skill would duplicate `AGENTS.md`. Revisit when a multi-step hardware procedure exists (bring-up, calibration). |
+| 15 | "When something goes wrong" table in `laundrybench/AGENTS.md` | ai-platform P12 | Done in Tier 1. Populate further as hardware bring-up produces real errors. |
+| 16 | Tiebreaker rule: `policies/base.py` and `robot/base.py` win over any doc; `mock.py` is the reference implementation | ai-platform P31 | Done in Tier 1. |
+| 17 | `tests/test_experiment_docs.py`: every `experiments/exp-*/README.md` has the required headings and a `Hardware:` line | api docs-check, ai-platform validate-datadog | Folded into `make check` rather than a separate target. Written red-first: failed on EXP-001/002 until their headers were added. |
+| 18 | Maintenance clause in nested AGENTS.md ("if you change the Robot/Policy contract, update this file and CONTEXT.md") | api pack CLAUDE.md "Maintenance" | Done in Tier 1. |
 
 ### Tier 3 — when hardware and LeRobot land
 
