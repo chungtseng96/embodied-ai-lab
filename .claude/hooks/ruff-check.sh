@@ -1,7 +1,12 @@
 #!/usr/bin/env bash
-# PostToolUse hook: run ruff on any .py file Claude just wrote or edited.
+# PostToolUse hook: run ruff --fix on any .py file Claude just wrote or edited.
+#
 # Self-gating: exits 0 silently for non-Python files or when ruff is missing.
 # Uses the project venv if present so the result matches `make lint`.
+#
+# Feedback contract: plain stdout on exit 0 is NOT shown to Claude (only the
+# transcript view). To reach Claude without blocking, emit the documented JSON
+# `hookSpecificOutput.additionalContext` on stdout and exit 0.
 set -u
 input=$(cat)
 tool=$(echo "$input" | jq -r '.tool_name // ""')
@@ -16,10 +21,22 @@ py="$root/projects/laundrybench/.venv/bin/python"
 [[ -x "$py" ]] || py=python3
 "$py" -m ruff --version >/dev/null 2>&1 || exit 0
 
-if ! out=$("$py" -m ruff check --fix "$file_path" 2>&1); then
-  echo "<ruff_errors>"
-  echo "ruff found unfixable issues in $file_path. Fix them, then run \`make lint\` from the repo root."
-  echo "$out"
-  echo "</ruff_errors>"
+before=$(shasum "$file_path")
+out=$("$py" -m ruff check --fix "$file_path" 2>&1)
+status=$?
+after=$(shasum "$file_path")
+
+msg=""
+if [[ "$before" != "$after" ]]; then
+  msg+="ruff --fix modified $file_path; re-read it before editing again."$'\n'
 fi
+if [[ $status -ne 0 ]]; then
+  msg+="ruff found unfixable issues in $file_path. Fix them, then run \`make lint\` from the repo root."$'\n'
+  msg+="$out"
+fi
+[[ -n "$msg" ]] || exit 0
+
+jq -n --arg ctx "$msg" '{
+  hookSpecificOutput: { hookEventName: "PostToolUse", additionalContext: $ctx }
+}'
 exit 0
