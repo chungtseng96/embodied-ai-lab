@@ -1,5 +1,9 @@
 # ADR 003 — Keep the policy boundary model-agnostic
 
+**Date:** 2026-09-15
+**Status:** Accepted
+**Owner:** James Wang
+
 ## Decision
 LaundryBench should depend on a small `Policy` interface rather than ACT-, SmolVLA-, or vendor-specific code throughout the system.
 

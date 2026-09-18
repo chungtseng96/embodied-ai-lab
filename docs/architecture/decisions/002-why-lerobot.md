@@ -1,5 +1,9 @@
 # ADR 002 — Use LeRobot as the robotics foundation
 
+**Date:** 2026-09-15
+**Status:** Accepted
+**Owner:** James Wang
+
 ## Decision
 Reuse LeRobot for supported hardware integration, dataset conventions, and policy workflows.
 
