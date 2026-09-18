@@ -42,14 +42,15 @@ reproduce it.
 
 ## Required validation
 
-For Python changes in LaundryBench, run:
+For Python changes in LaundryBench, run with the default Python (this matches
+CI, which uses stock Python 3.11 without LeRobot):
 
 ```bash
-make test PYTHON=.venv-lerobot/bin/python
-make lint PYTHON=.venv-lerobot/bin/python
+make check
 ```
 
-For LeRobot environment changes, also run:
+For LeRobot environment changes, also run the check through the LeRobot
+virtual environment, which is the only command that needs it:
 
 ```bash
 make lerobot-check PYTHON=.venv-lerobot/bin/python

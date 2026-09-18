@@ -18,11 +18,11 @@ experiment records.
    physical hardware.
 4. Prefer a versioned script plus explicit config over an interactive-only
    workflow.
-5. Run the smallest relevant checks. For Python changes, use:
+5. Run the smallest relevant checks. For Python changes, use the default
+   Python so results match CI:
 
    ```bash
-   make test PYTHON=.venv-lerobot/bin/python
-   make lint PYTHON=.venv-lerobot/bin/python
+   make check
    ```
 
 6. If LeRobot environment behavior changed, also run `make lerobot-check` with
