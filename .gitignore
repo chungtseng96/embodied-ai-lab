@@ -31,3 +31,7 @@ projects/laundrybench/data/processed/
 .DS_Store
 .vscode/
 .idea/
+
+# Agent scratch space (see AGENTS.md)
+.claude/scratch/
+LOOP-STATE.md
