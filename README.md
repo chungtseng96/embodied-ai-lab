@@ -6,6 +6,15 @@ A hands-on learning and portfolio repository for building practical understandin
 
 Teach an SO-101 robot to identify, pick up, and sort simple laundry items, then build the surrounding software for data collection, policy execution, evaluation, observability, and iteration.
 
+The deep engineering focus is a **policy-agnostic evaluation and
+failure-driven data platform**. LaundryBench will use one working policy to
+make the loop physical, while owning the protocols, traces, quality checks,
+failure analysis, comparison reports, and targeted-data workflow around it.
+
+See the [evaluation platform architecture](docs/architecture/evaluation-platform.md)
+and [ADR 004](docs/architecture/decisions/004-evaluation-and-data-platform-focus.md)
+for the decision and initial design.
+
 The portfolio goal is not just **"make the robot move."** It is to demonstrate the full improvement loop:
 
 ```text
@@ -68,6 +77,7 @@ embodied-ai-lab/
 - External USB camera ordered
 - Mock robot/policy architecture in place
 - Evaluation runner, metrics, and structured logging in place
+- Evaluation-platform direction and initial architecture documented
 - Physical LeRobot integration intentionally waits for hardware bring-up
 
 ## Quick start: mock software loop
@@ -86,4 +96,6 @@ The mock implementation exists only to exercise the software boundaries before t
 2. Keep software boundaries reusable.
 3. Reuse LeRobot instead of rebuilding hardware/model plumbing unnecessarily.
 4. Treat experiments and failures as first-class artifacts.
-5. Never present synthetic/mock results as physical robot results.
+5. Go deep on evaluation and data improvement; reuse policy and hardware
+   plumbing where practical.
+6. Never present synthetic/mock results as physical robot results.
