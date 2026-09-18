@@ -2,7 +2,7 @@
 
 **Date:** 2026-09-18
 **Status:** Living document
-**Owner:** James Wang
+**Owner:** Chung-Tseng Wang
 
 Human-maintained glossary, invariants, and open questions for `projects/laundrybench/`. Hold
 these before changing anything here. Update it when a decision changes; link, don't duplicate.

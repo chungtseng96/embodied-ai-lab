@@ -2,7 +2,7 @@
 
 **Date:** 2026-09-15
 **Status:** Accepted
-**Owner:** James Wang
+**Owner:** Chung-Tseng Wang
 
 ## Decision
 Reuse LeRobot for supported hardware integration, dataset conventions, and policy workflows.

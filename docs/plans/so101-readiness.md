@@ -2,7 +2,7 @@
 
 **Date:** 2026-09-17
 **Status:** In progress
-**Owner:** James Wang
+**Owner:** Chung-Tseng Wang
 
 **Objective:** be able to calibrate, record, train, evaluate, and run a first
 controlled rollout as soon as the SO-101 arrives, without depending on a

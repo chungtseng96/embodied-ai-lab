@@ -2,7 +2,7 @@
 
 **Date:** 2026-09-15
 **Status:** Accepted
-**Owner:** James Wang
+**Owner:** Chung-Tseng Wang
 
 ## Decision
 LaundryBench should depend on a small `Policy` interface rather than ACT-, SmolVLA-, or vendor-specific code throughout the system.

@@ -3,7 +3,7 @@
 **Date:** 2026-09-15
 **Status:** Planned
 **Hardware:** physical
-**Owner:** James Wang
+**Owner:** Chung-Tseng Wang
 
 ## Question
 

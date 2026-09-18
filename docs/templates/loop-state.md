@@ -11,6 +11,6 @@ item. Evidence means a command and its output, a file path, or a test name, not 
 | <item> | in progress | | |
 | <item> | done | `make check` → `GATE PASS`, 6 passed | |
 | <item> | blocked | why, and what was tried | |
-| Needs James | ready | decisions only a human can make: spend money, delete data, move the robot, change the evaluation protocol | |
+| Needs me | ready | decisions only a human can make: spend money, delete data, move the robot, change the evaluation protocol | |
 
-Status values: `todo`, `in progress`, `done`, `blocked`, `ready` (Needs James row only).
+Status values: `todo`, `in progress`, `done`, `blocked`, `ready` (Needs me row only).

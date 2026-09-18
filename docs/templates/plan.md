@@ -7,7 +7,7 @@
 
 > **For agentic workers:** work this plan one task at a time. Steps use `- [ ]` checkboxes;
 > tick them as evidence lands, not when the code is written. Keep loop state in `LOOP-STATE.md`
-> (see `docs/templates/loop-state.md`). Human-only decisions go in the `Needs James` row there,
+> (see `docs/templates/loop-state.md`). Human-only decisions go in the `Needs me` row there,
 > not inline here.
 
 ## Goal
