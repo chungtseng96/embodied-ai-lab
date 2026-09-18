@@ -1,11 +1,11 @@
 # Adopt AI-agent-friendly repo patterns
 
 **Date:** 2026-09-18
-**Status:** Proposed (list only, nothing implemented yet)
+**Status:** Tier 1 implemented 2026-09-18 on branch `adopt-agent-patterns`; Tiers 2-3 proposed
 **Sources audited:** `Underdog-Inc/ranger`, `Underdog-Inc/ai-platform`, `Underdog-Inc/api` (local clones under `~/Desktop/repos/`)
 **Scope:** this repo is a solo Python learning + robotics lab. Patterns built for large polyglot monorepos (CI aggregators, CODEOWNERS, Copilot sync hooks, risk gates) are deliberately left out. Only patterns that pay off at this size are listed.
 
-## Where this repo stands today
+## Where this repo stood before Tier 1
 
 - No `AGENTS.md` / `CLAUDE.md`, no `.claude/`, no skills, no hooks.
 - `Makefile` has 4 targets (`install`, `test`, `demo`, `lint`). CI re-implements them by hand instead of calling them.
