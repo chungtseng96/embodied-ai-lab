@@ -80,6 +80,15 @@ make demo
 
 The mock implementation exists only to exercise the software boundaries before the physical robot arrives. Mock results are **not** robot performance claims.
 
+## Engineering workflow
+
+The project uses a script- and configuration-driven workflow designed for
+local development, a nearby robot computer, and cloud GPU training. Read the
+[robot-learning development environment](docs/architecture/robot-learning-development-environment.md)
+and the [SO-101 readiness plan](docs/plans/so101-readiness.md) before adding
+hardware or training code. Repository and agent conventions live in
+[`AGENTS.md`](AGENTS.md) and `skills/`.
+
 ## Design principles
 
 1. Keep the first physical task narrow.
