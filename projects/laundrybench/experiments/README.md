@@ -12,6 +12,7 @@ exp-003-...
 
 ## Every experiment should capture
 
+- `Hardware: mock | physical` in the header (mandatory; mock results are never robot results)
 - question / hypothesis
 - task and evaluation conditions
 - policy/model version
@@ -20,6 +21,7 @@ exp-003-...
 - number of physical attempts
 - success definition
 - results and failure breakdown
+- evidence: commit, command, raw output excerpt, log path, negative check
 - conclusion and next step
 
 Use `docs/templates/experiment.md` as the starting format.
