@@ -34,4 +34,4 @@ projects/laundrybench/data/processed/
 
 # Agent scratch space (see AGENTS.md)
 .claude/scratch/
-LOOP-STATE.md
+/LOOP-STATE.md
