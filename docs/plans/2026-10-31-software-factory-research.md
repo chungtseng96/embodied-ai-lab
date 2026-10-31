@@ -49,6 +49,52 @@ Points that shaped the recommendation below:
   pass SWE-bench would not be merged by maintainers; Faire still requires two
   human reviews on agent PRs. So a reviewer against the spec is not optional.
 
+## Warp's cloud software factory, as the concrete reference
+
+Warp's build guide and its open `cloud-factory-demo` repo are the most
+worked-out public example of the skeleton above, and the shape is portable
+even though the runtime (Oz) is Warp's hosted platform.
+
+- **Labels are the state machine.** An issue carries one of four labels
+  (`Ready to implement`, `Ready to spec`, `Needs info`, `Wait to implement`);
+  each label change fires a GitHub Actions workflow. No orchestration
+  framework. Three workflows: triage on issue open, spec on label, implement
+  on label.
+- **One skill per stage**, in `.agents/skills/`: triage, write-product-spec,
+  write-tech-spec, implement, review, `validate-changes-match-specs`, monitor.
+- **Specs are committed per issue** as `specs/<issue-slug>/PRODUCT.md` and
+  `TECH.md`, so implementation reads files, not chat context, and the record
+  outlives the run.
+- **Review is a sandboxed agent that can run the code** before commenting, and
+  an outer-loop agent rewrites the review skill from human review comments
+  (the "self-improving" part).
+- **Human gates:** spec approval ("the highest-leverage checkpoint"), final PR
+  approval, and parked issues.
+- **Build order:** triage first, then spec-driven development, then
+  self-improving review, then computer-use verification. Each step is
+  optional and you can stop at any point.
+- **Prerequisites** a field report names: a codebase the agent can navigate,
+  meaningful test coverage for the verify stage, and trust in your own specs.
+  Runtime needs a `WARP_API_KEY`; Oz, the orchestration layer, is proprietary.
+
+What to borrow and what to skip for this repo:
+
+| Warp piece | Here |
+| --- | --- |
+| Labels as state machine | Linear states (`Todo` → `In Progress` → `In Review` → `Done`) play the same role; the agent moves the ticket as the handoff contract |
+| Per-issue `PRODUCT.md` / `TECH.md` | Already have it at finer grain: one plan task per ticket with tests and Interfaces, plus the review finding it fixes. No new spec files needed for Phase A |
+| `validate-changes-match-specs` skill | Adopt as the reviewer's brief: diff versus the task's Interfaces block and tests, nothing else |
+| Triage agent | Skip. One person writes the tickets; triage is the part Warp built for inbound bug volume we do not have |
+| GitHub Actions + Oz runtime | Skip for now. Run the pipeline locally (Option B below); revisit GitHub Actions with Anthropic's `claude-code-action` once three tickets have gone through cleanly |
+| Self-improving review skill | Do by hand: a recurring reviewer finding becomes an `AGENTS.md` gotcha or a test. Automate only if the manual version becomes a chore |
+
+Related open-source shapes worth knowing, from the awesome-software-factories
+list: `addyosmani/factory` (issues as queue, scheduled agents open draft PRs,
+supports Claude Code), `disler/super-simple-software-factory` (deterministic
+Python owns the workflow, agents are bounded nodes, packaged as one skill),
+`cyrusagents/cyrus` (works issues assigned to it in Linear), and Anthropic's
+`ralph-wiggum` plugin (Stop hook re-feeds the prompt until done).
+
 ## What this repo already has
 
 The plan and review documents written today are already the factory's
@@ -137,3 +183,7 @@ decide whether to batch.
 - Geoffrey Huntley, Ralph Wiggum as a software engineer: <https://ghuntley.com/ralph/>
 - GitHub, Spec Kit: <https://github.com/github/spec-kit>
 - Atlan, Agentic software factory: <https://atlan.com/know/ai-agent/agentic-software-factory/>
+- Warp, The cloud software factory build guide: <https://www.warp.dev/blog/software-factory-build-guide>
+- Mager, Warp: the cloud factory, now running (field report): <https://www.mager.co/blog/2026-07-03-cloud-factory/>
+- The New Stack, Warp wants to make it easier to build your software factory: <https://thenewstack.io/warp-software-factory-infrastructure/>
+- awesome-software-factories (curated list): <https://github.com/varun1505/awesome-software-factories>
