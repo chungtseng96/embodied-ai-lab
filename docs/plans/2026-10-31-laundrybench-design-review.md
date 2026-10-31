@@ -43,6 +43,24 @@ Severity: **H** = will block or corrupt the first physical experiment,
 | F12 | L | `make check` fails out of the box because `PYTHON ?= python3` resolves to Python 3.9 here while `pyproject.toml` requires 3.11 and LeRobot needs 3.12. The trap is documented in `labs/05` but not removed. | Task 9 | open |
 | F13 | L | `scripts/record.py`, `train.py`, `run_policy.py` are stubs and there is no Dockerfile, although the design doc centers Docker. Acceptable before hardware, but the plan must state which of these can be built now (Dockerfile, `train.py` CLI wrapper) and which wait for the arm. | Deferred section | open |
 
+## Reconciliation with the tldraw diagrams
+
+The two diagrams in [`docs/architecture/diagrams/`](../architecture/diagrams/README.md)
+are the fuller design. The plan currently covers the runner, judge, step
+recorder, manifest, taxonomy, and config loading. Still to reconcile:
+
+| ID | Delta between plan and diagram | Proposed resolution |
+| --- | --- | --- |
+| D1 | Diagram keeps `success` on the Robot adapter but asks "WHO DECIDES on real arm?" | Keep F1: move it to `SuccessJudge`; update the diagram. |
+| D2 | Taxonomy names differ (diagram: `missed_grasp`, `grasp_lost`, `wrong_object`, `dropped`, `timeout`, ...) | Adopt the diagram's names in Task 4. |
+| D3 | Artifact layout: diagram uses `outputs/exp-001-baseline/{manifest.yaml, summary.json, episodes.jsonl, quality.json, report.html, media/, traces/}`; plan uses `outputs/<run_id>/manifest.json` | Adopt the diagram's layout in Task 6; key runs by experiment ID. |
+| D4 | Quality gate (frozen camera, NaN actions, bad timestamps, missing labels) has no task | Add Phase B task: `quality.py` + `quality.json`. |
+| D5 | Report (per-condition, CIs, baseline vs candidate, `report.html`) has no task | Add Phase B task: `summary.json` + static `report.html`. |
+| D6 | Vertical slice steps 5 and 6 (compare two mock policies, inject and classify one failure) have no task | Add Phase B tasks. |
+| D7 | Operator terminal view during a run and Rerun replay are not in the plan | Terminal view is a small Phase B task; Rerun replay stays deferred to hardware. |
+
+Status: proposed, awaiting confirmation before the plan is edited.
+
 ## What is sound and should not change
 
 - LeRobot owns hardware, datasets, and policy mechanics; LaundryBench adapts at
