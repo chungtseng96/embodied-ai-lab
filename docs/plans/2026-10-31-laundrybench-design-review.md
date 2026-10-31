@@ -59,7 +59,7 @@ recorder, manifest, taxonomy, and config loading. Still to reconcile:
 | D6 | Vertical slice steps 5 and 6 (compare two mock policies, inject and classify one failure) have no task | Add Phase B tasks. |
 | D7 | Operator terminal view during a run and Rerun replay are not in the plan | Terminal view is a small Phase B task; Rerun replay stays deferred to hardware. |
 
-Status: proposed, awaiting confirmation before the plan is edited.
+Status: accepted 2026-10-31. D1 applied to both diagrams; D2 and D3 applied to Tasks 4 and 6; D4 to D7 are Tasks 10 to 13 (Phase B).
 
 ## What is sound and should not change
 

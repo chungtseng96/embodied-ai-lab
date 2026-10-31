@@ -21,11 +21,13 @@ update the issue when the task's commit lands.
 
 | Task | Issue | Task | Issue |
 | --- | --- | --- | --- |
-| 1 SuccessJudge | JWA-5 | 6 Run manifest | JWA-10 |
+| 1 SuccessJudge | JWA-5 | 6 Manifest + artifact layout | JWA-10 |
 | 2 reset/stop | JWA-6 | 7 Observation contract | JWA-11 |
 | 3 Timed loop | JWA-7 | 8 Step logging | JWA-12 |
 | 4 Taxonomy + metrics | JWA-8 | 9 Plan of record + Makefile | JWA-13 |
 | 5 Config loading | JWA-9 | Deferred hardware items | JWA-14 to JWA-18 |
+| 10 Quality gate | JWA-19 | 11 Summary + report | JWA-20 |
+| 12 Comparison + faulty fixture | JWA-21 | 13 Terminal view | JWA-22 |
 
 ## Global Constraints
 
@@ -233,7 +235,7 @@ Keep `test_runner_stops_robot_when_policy_raises` and the reset test, switching 
 
 ### Task 4: Failure taxonomy and aligned metrics
 
-Fixes F5, F10.
+Fixes F5, F10. Names follow the run-workflow diagram (D2).
 
 **Files:**
 - Modify: `src/laundrybench/types.py`
@@ -247,9 +249,10 @@ Fixes F5, F10.
 - Produces in `types.py`:
   ```python
   class FailureCategory(str, Enum):
-      GRASP_MISS = "grasp_miss"; DROP_IN_TRANSIT = "drop_in_transit"; WRONG_ITEM = "wrong_item"
-      MISSED_BASKET = "missed_basket"; TIMEOUT = "timeout"; INTERVENTION = "intervention"
-      HARDWARE_FAULT = "hardware_fault"; UNSPECIFIED = "unspecified"
+      MISSED_GRASP = "missed_grasp"; GRASP_LOST = "grasp_lost"; WRONG_OBJECT = "wrong_object"
+      DROPPED = "dropped"; MISSED_BASKET = "missed_basket"; TIMEOUT = "timeout"
+      INTERVENTION = "intervention"; HARDWARE_FAULT = "hardware_fault"
+      FROZEN_CAMERA = "frozen_camera"; UNSPECIFIED = "unspecified"
   ```
   `EpisodeResult.failure_category: FailureCategory | None`.
 - `summarize(results) -> dict[str, object]` returns exactly these keys: `episodes`, `successes`, `success_rate`, `median_completion_time_s` (median `duration_s` over **successful** episodes, `0.0` if none), `intervention_rate` (interventions / episodes, `0.0` if empty), `failure_category_counts` (dict of `category.value -> int` over failed episodes; a failed episode with `None` counts as `"unspecified"`).
@@ -263,14 +266,14 @@ def test_summarize_counts_failure_categories_and_rates():
     results = [
         EpisodeResult("a", True, 1.0),
         EpisodeResult("b", True, 3.0),
-        EpisodeResult("c", False, 5.0, intervention=True, failure_category=FailureCategory.GRASP_MISS),
+        EpisodeResult("c", False, 5.0, intervention=True, failure_category=FailureCategory.MISSED_GRASP),
         EpisodeResult("d", False, 6.0, failure_category=None),
     ]
     s = summarize(results)
     assert s["success_rate"] == 0.5
     assert s["median_completion_time_s"] == 2.0
     assert s["intervention_rate"] == 0.25
-    assert s["failure_category_counts"] == {"grasp_miss": 1, "unspecified": 1}
+    assert s["failure_category_counts"] == {"missed_grasp": 1, "unspecified": 1}
 
 def test_summarize_empty_results():
     s = summarize([])
@@ -355,14 +358,14 @@ def test_missing_file_raises(tmp_path):
 
 ---
 
-### Task 6: Run manifest and deterministic episode IDs
+### Task 6: Run manifest and experiment-keyed artifact layout
 
-Fixes F7.
+Fixes F7. Layout follows the diagrams (D3): one directory per experiment ID.
 
 **Files:**
 - Create: `src/laundrybench/observability/manifest.py`
 - Modify: `src/laundrybench/evaluation/runner.py` (accept `episode_id`)
-- Modify: `scripts/evaluate.py` (`--output-dir`, writes `manifest.json` + `episodes.jsonl`)
+- Modify: `scripts/evaluate.py` (`--experiment`, `--output-dir`; writes `manifest.yaml` + `episodes.jsonl`)
 - Test: `tests/test_manifest.py`, `tests/test_runner.py`
 
 **Interfaces:**
@@ -370,16 +373,17 @@ Fixes F7.
   ```python
   @dataclass(frozen=True)
   class RunManifest:
-      run_id: str; created_at: str; git_revision: str; config_hash: str; seed: int
+      experiment_id: str; created_at: str; git_revision: str; config_hash: str; seed: int
       policy_name: str; robot_implementation: str; python_version: str; lerobot_version: str | None
   def git_revision(cwd: Path | None = None) -> str          # "unknown" on any failure
   def config_hash(config_dir: Path) -> str                   # sha256 hex of the four YAML files' bytes, sorted by filename
-  def new_run_id(now: datetime | None = None) -> str         # "%Y%m%dT%H%M%S" UTC
-  def write_manifest(path: Path, manifest: RunManifest) -> None   # JSON, sort_keys=True
+  def write_manifest(path: Path, manifest: RunManifest) -> None   # YAML via yaml.safe_dump, sort_keys=True
+  EXPERIMENT_ID_RE = r"^exp-\d{3}-[a-z0-9-]+$"                     # e.g. exp-001-baseline; evaluate.py rejects others
   ```
   `lerobot_version` is `importlib.metadata.version("lerobot")` if installed else `None`; no `import lerobot`.
-- `run_episode(..., episode_id: str | None = None)`: uses the given id or falls back to `uuid4()`. `evaluate.py` passes `f"{run_id}-{index:03d}"`.
-- `evaluate.py` replaces `--output` with `--output-dir` (default `outputs`); writes `outputs/<run_id>/manifest.json` and `outputs/<run_id>/episodes.jsonl`.
+- `run_episode(..., episode_id: str | None = None)`: uses the given id or falls back to `uuid4()`. `evaluate.py` passes `f"{experiment_id}-{index:03d}"`.
+- `evaluate.py` gains `--experiment` (required, must match `EXPERIMENT_ID_RE`) and replaces `--output` with `--output-dir` (default `outputs`); writes `outputs/<experiment_id>/manifest.yaml` and `outputs/<experiment_id>/episodes.jsonl`. Re-running the same experiment ID refuses to overwrite unless `--force`.
+- Directory contract for later tasks: `outputs/<experiment_id>/{manifest.yaml, episodes.jsonl, traces/steps.jsonl, quality.json, summary.json, report.html, media/}`.
 
 - [ ] **Step 1: Write failing tests**
 
@@ -395,25 +399,29 @@ def test_config_hash_is_stable_and_changes_with_content(tmp_path):
     assert config_hash(tmp_path) != h1
 
 def test_write_manifest_round_trips(tmp_path):
-    m = RunManifest("r1", "2026-10-31T00:00:00Z", "abc", "deadbeef", 7, "mock-policy", "mock", "3.11.0", None)
-    write_manifest(tmp_path / "manifest.json", m)
-    assert json.loads((tmp_path / "manifest.json").read_text())["run_id"] == "r1"
+    m = RunManifest("exp-001-baseline", "2026-10-31T00:00:00Z", "abc", "deadbeef", 7, "mock-policy", "mock", "3.11.0", None)
+    write_manifest(tmp_path / "manifest.yaml", m)
+    assert yaml.safe_load((tmp_path / "manifest.yaml").read_text())["experiment_id"] == "exp-001-baseline"
+
+def test_evaluate_rejects_bad_experiment_id():
+    assert re.match(EXPERIMENT_ID_RE, "exp-001-baseline")
+    assert not re.match(EXPERIMENT_ID_RE, "baseline")
 
 # tests/test_runner.py
 def test_runner_uses_given_episode_id(fake_clock):
     result = run_episode(MockRobot(), MockPolicy(), MockSuccessJudge(success_after_steps=1, success_probability=1.0),
                          control_hz=10, timeout_s=1.0, clock=fake_clock.now, sleep=fake_clock.sleep,
-                         episode_id="run-001")
-    assert result.episode_id == "run-001"
+                         episode_id="exp-001-baseline-001")
+    assert result.episode_id == "exp-001-baseline-001"
 ```
 
 - [ ] **Step 2: Run tests, expect ImportError on `laundrybench.observability.manifest`**
 
 - [ ] **Step 3: Implement `manifest.py` (`subprocess.run(["git", "rev-parse", "HEAD"], cwd=cwd, capture_output=True, text=True, timeout=5)` guarded by `try/except (OSError, subprocess.SubprocessError)` and non-zero return), the runner parameter, and the `evaluate.py` output layout**
 
-- [ ] **Step 4: Run `make check PYTHON=.venv/bin/python` and `make demo PYTHON=.venv/bin/python`; confirm `ls outputs/*/manifest.json` exists and `git status --short` shows no `outputs/` entry**
+- [ ] **Step 4: Run `make check PYTHON=.venv/bin/python` and `make demo PYTHON=.venv/bin/python`; run the demo with `--experiment exp-000-mock-smoke`, confirm `outputs/exp-000-mock-smoke/manifest.yaml` exists and `git status --short` shows no `outputs/` entry**
 
-- [ ] **Step 5: Commit** `feat: write a run manifest and deterministic episode ids per evaluation run`
+- [ ] **Step 5: Commit** `feat: experiment-keyed output directory with manifest.yaml and deterministic episode ids`
 
 ---
 
@@ -484,7 +492,7 @@ Fixes F8. Depends on Task 7's `Observation` shape.
 **Files:**
 - Modify: `src/laundrybench/observability/logger.py`
 - Modify: `src/laundrybench/evaluation/runner.py` (`on_step` hook)
-- Modify: `scripts/evaluate.py` (writes `steps.jsonl` in the run dir)
+- Modify: `scripts/evaluate.py` (writes `traces/steps.jsonl` in the experiment dir)
 - Test: `tests/test_logger.py`, `tests/test_runner.py`
 
 **Interfaces:**
@@ -520,9 +528,9 @@ def test_runner_calls_on_step_each_step(fake_clock):
 
 - [ ] **Step 2: Run tests, expect ImportError / TypeError**
 
-- [ ] **Step 3: Implement the logger and hook; in `evaluate.py` create `JsonlStepLogger(run_dir / "steps.jsonl")` and pass `on_step=step_logger.log`**
+- [ ] **Step 3: Implement the logger and hook; in `evaluate.py` create `JsonlStepLogger(experiment_dir / "traces" / "steps.jsonl")` and pass `on_step=step_logger.log`**
 
-- [ ] **Step 4: Run `make check PYTHON=.venv/bin/python` and `make demo PYTHON=.venv/bin/python`; confirm `outputs/<run_id>/steps.jsonl` has more lines than `episodes.jsonl`**
+- [ ] **Step 4: Run `make check PYTHON=.venv/bin/python` and `make demo PYTHON=.venv/bin/python`; confirm `outputs/exp-000-mock-smoke/traces/steps.jsonl` has more lines than `episodes.jsonl`**
 
 - [ ] **Step 5: Commit** `feat: log per-step observations and actions to steps.jsonl`
 
@@ -553,6 +561,99 @@ Verify: `make check` (no `PYTHON=`) passes in this worktree; `make check PYTHON=
 
 ---
 
+## Phase B: evidence and reporting (from the diagrams, D4 to D7)
+
+Phase B starts after Task 9. Each task reads the directory contract from Task 6 and the step log from Task 8.
+
+### Task 10: Quality gate over step traces
+
+Fixes D4. Mirrors run-workflow step 5.
+
+**Files:**
+- Create: `src/laundrybench/evaluation/quality.py`
+- Modify: `scripts/evaluate.py` (writes `quality.json` after the run)
+- Test: `tests/test_quality.py`
+
+**Interfaces:**
+- Produces:
+  ```python
+  @dataclass(frozen=True)
+  class QualityFlag: episode_id: str; check: str; detail: str
+  def check_episode_quality(steps: list[dict], *, control_hz: float, joint_limits: tuple[float, float] = (-100.0, 100.0)) -> list[QualityFlag]
+  def write_quality_report(path: Path, flags: list[QualityFlag], episode_ids: list[str]) -> None   # {"episodes": n, "flagged": n, "flags": [...]}
+  ```
+  Checks, with `check` values: `frozen_actions` (same `joint_targets` for 10+ consecutive steps), `nan_action` (any non-finite target), `joint_limit` (target outside limits), `timestamp_gap` (consecutive `timestamp_s` differ by more than `3 / control_hz`), `missing_label` (failed episode whose `failure_category` is `unspecified`).
+
+- [ ] **Step 1: Write failing tests**: one test per check with a hand-built `steps` list that trips exactly that check, plus `test_clean_episode_has_no_flags`.
+- [ ] **Step 2: Run tests, expect ImportError**
+- [ ] **Step 3: Implement `quality.py`; in `evaluate.py` read back `traces/steps.jsonl` grouped by `episode_id` and write `quality.json`**
+- [ ] **Step 4: Run `make check PYTHON=.venv/bin/python`, expect pass**
+- [ ] **Step 5: Commit** `feat: quality gate over step traces writes quality.json`
+
+### Task 11: Summary and static HTML report
+
+Fixes D5. Mirrors run-workflow step 7 and the diagram's `summary.json` + `report.html`.
+
+**Files:**
+- Create: `src/laundrybench/evaluation/report.py`
+- Create: `scripts/report.py`
+- Test: `tests/test_report.py`
+
+**Interfaces:**
+- Produces:
+  ```python
+  def wilson_interval(successes: int, n: int, z: float = 1.96) -> tuple[float, float]   # (0.0, 0.0) when n == 0
+  def build_summary(experiment_dir: Path) -> dict          # summarize() output + "success_rate_ci" + "quality" counts + manifest fields
+  def render_html(summary: dict, baseline: dict | None = None) -> str   # stdlib string.Template, no external deps
+  ```
+- `scripts/report.py --experiment-dir outputs/exp-001-baseline [--baseline outputs/exp-000-mock-smoke]` writes `summary.json` and `report.html` into the experiment dir. The HTML has: manifest table, success rate with CI, failure category bar list, intervention rate, quality flag count, and a baseline column when given.
+
+- [ ] **Step 1: Write failing tests**: `test_wilson_interval_known_value` (7 of 10 → approx (0.397, 0.892)), `test_build_summary_reads_experiment_dir` using a tmp dir written by the Task 6/8 helpers, `test_render_html_includes_baseline_column`.
+- [ ] **Step 2: Run tests, expect ImportError**
+- [ ] **Step 3: Implement; keep `render_html` dependency-free**
+- [ ] **Step 4: Run `make check PYTHON=.venv/bin/python`; run `scripts/report.py` on the demo output and open `report.html` once to confirm it renders**
+- [ ] **Step 5: Commit** `feat: summary.json and static report.html per experiment`
+
+### Task 12: Baseline vs candidate comparison with an injected failure
+
+Fixes D6. Mirrors the EXP-001 to EXP-002 loop and vertical-slice steps 5 and 6.
+
+**Files:**
+- Create: `src/laundrybench/policies/faulty.py` (`FaultyMockPolicy`: like `MockPolicy` but emits NaN targets on a configurable step, so the quality gate and taxonomy are exercised end to end)
+- Create: `src/laundrybench/evaluation/judge.py` addition: `MockSuccessJudge` gains `failure_category: FailureCategory = FailureCategory.MISSED_GRASP` used on timeout
+- Modify: `scripts/evaluate.py` (`--policy mock|faulty`)
+- Modify: `scripts/report.py` (already accepts `--baseline`; add `delta` fields to `summary.json`)
+- Test: `tests/test_compare.py`
+
+**Interfaces:**
+- `build_summary(experiment_dir, baseline_dir=None)` adds `"delta": {"success_rate": float, "failure_category_counts": dict[str, int]}` when a baseline is given.
+
+- [ ] **Step 1: Write failing tests**: run two mock experiments into tmp dirs (mock vs faulty), assert the faulty one has a `nan_action` quality flag and a lower success rate, and that `delta.success_rate` is negative.
+- [ ] **Step 2: Run tests, expect failures**
+- [ ] **Step 3: Implement**
+- [ ] **Step 4: Run `make check PYTHON=.venv/bin/python`, expect pass**
+- [ ] **Step 5: Commit** `feat: compare baseline vs candidate experiments; faulty mock policy fixture`
+
+### Task 13: Operator terminal view during a run
+
+Fixes D7. Mirrors observability box "DURING the run".
+
+**Files:**
+- Create: `scripts/watch.py`
+- Test: `tests/test_watch.py`
+
+**Interfaces:**
+- `def format_status(results: list[EpisodeResult], total: int) -> str` returns one line like `episode 7/20 | 4 ok | last: missed_grasp | median 3.1s`.
+- `scripts/watch.py --experiment-dir outputs/exp-001-baseline` tails `episodes.jsonl` and reprints `format_status` on each new line; exits when `total` episodes are present or on Ctrl-C.
+
+- [ ] **Step 1: Write failing test** for `format_status` with three results.
+- [ ] **Step 2: Run test, expect ImportError**
+- [ ] **Step 3: Implement with stdlib only (`time.sleep` polling, no watchdog dependency)**
+- [ ] **Step 4: Run `make check PYTHON=.venv/bin/python`, expect pass**
+- [ ] **Step 5: Commit** `feat: terminal status view that tails episodes.jsonl`
+
+---
+
 ## Deferred until hardware or a Linux GPU host is available
 
 These are specified here so the contract is fixed now, but they cannot be tested in CI or on the Intel Mac. Do not start them in this plan's execution.
@@ -561,4 +662,5 @@ These are specified here so the contract is fixed now, but they cannot be tested
 - **`SO101LeRobotRobot`** (`robot/so101_lerobot.py`, imports `lerobot` only inside this module): wraps the installed LeRobot SO-101 follower object, maps its observation dict onto `Observation(joint_names=SO101_JOINT_NAMES, joint_units=<from LeRobot config>)`, `stop()` sends the current position as the target then disconnects. Blocked on knowing the exact object shape of the LeRobot version installed on the edge host (see `labs/05`).
 - **`scripts/record.py`**: thin `subprocess` wrapper around `lerobot-record` with explicit `--robot.port`, `--robot.id`, `--dataset.repo_id`, `--dataset.num_episodes`, `--dataset.single_task=<task.description>` taken from `load_config`. Never guess a port: refuse to run when `robot.follower_port` is `null`.
 - **`scripts/train.py` and `Dockerfile`**: `train.py` wraps `lerobot-train --policy.type=act --dataset.repo_id=... --steps=... --output_dir=...` from a checked-in `configs/training.yaml`; the Dockerfile builds a CUDA image with pinned `lerobot`. The image can be built locally for a smoke test but training needs a Linux NVIDIA host (Phase 4 of the readiness plan).
+- **Rerun replay of a single episode** (observability box "AFTER one episode"): needs real frames; the step log from Task 8 is the input. Hardware-day item.
 - **Video capture during evaluation**: `evaluation.yaml` has `record_video: true`; the plan intentionally logs `image_keys` only. Decide on hardware day whether video comes from LeRobot dataset recording during rollout or from a separate capture process.
