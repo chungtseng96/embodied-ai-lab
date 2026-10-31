@@ -20,8 +20,9 @@ reproduce it.
   <https://linear.app/jwang-embodied-ai-lab/team/JWA/active> (team key `JWA`).
   Check it before starting work and reference the issue key in branch names
   and commit messages when one exists.
-- Design findings and their status live in
-  `docs/plans/2026-10-31-laundrybench-design-review.md`.
+- Execution detail for the current engineering push lives in
+  `docs/plans/2026-10-31-laundrybench-v1-implementation.md`; design findings
+  and their status live in `docs/plans/2026-10-31-laundrybench-design-review.md`.
 - GitHub remote is the personal account `chungtseng96`, not a work account.
   Git pushes use a repo-local credential helper for that account. The `gh`
   CLI's active login may be a different account, so run `gh` commands for
