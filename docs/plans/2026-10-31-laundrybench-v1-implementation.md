@@ -13,6 +13,20 @@
 [`../architecture/decisions/003-policy-abstraction.md`](../architecture/decisions/003-policy-abstraction.md), and
 [`so101-readiness.md`](so101-readiness.md) as the governing design.
 
+## Tracking
+
+Linear project: **LaundryBench V1 contract hardening** (team `JWA`,
+<https://linear.app/jwang-embodied-ai-lab/team/JWA/active>). One issue per task;
+update the issue when the task's commit lands.
+
+| Task | Issue | Task | Issue |
+| --- | --- | --- | --- |
+| 1 SuccessJudge | JWA-5 | 6 Run manifest | JWA-10 |
+| 2 reset/stop | JWA-6 | 7 Observation contract | JWA-11 |
+| 3 Timed loop | JWA-7 | 8 Step logging | JWA-12 |
+| 4 Taxonomy + metrics | JWA-8 | 9 Plan of record + Makefile | JWA-13 |
+| 5 Config loading | JWA-9 | Deferred hardware items | JWA-14 to JWA-18 |
+
 ## Global Constraints
 
 - `requires-python = ">=3.11"`; CI runs stock Python 3.11 with no LeRobot installed. Nothing under `src/laundrybench/` may import `lerobot`.
