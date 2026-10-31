@@ -14,6 +14,19 @@ configuration files, tests, logs, and experiment records. A notebook may be
 useful for exploration, but no important result should require a notebook to
 reproduce it.
 
+## Work tracking
+
+- Issues and priorities live in Linear:
+  <https://linear.app/jwang-embodied-ai-lab/team/JWA/active> (team key `JWA`).
+  Check it before starting work and reference the issue key in branch names
+  and commit messages when one exists.
+- Design findings and their status live in
+  `docs/plans/2026-10-31-laundrybench-design-review.md`.
+- GitHub remote is the personal account `chungtseng96`, not a work account.
+  Git pushes use a repo-local credential helper for that account. The `gh`
+  CLI's active login may be a different account, so run `gh` commands for
+  this repo as `GH_TOKEN="$(gh auth token --user chungtseng96)" gh ...`.
+
 ## Before changing code
 
 - Read the relevant `AGENTS.md` files from the repository root down to the

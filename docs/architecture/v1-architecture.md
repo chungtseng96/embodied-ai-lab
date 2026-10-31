@@ -27,3 +27,7 @@ video + joint logs + outcome
 - Reuse LeRobot for hardware integration and policy execution
 - Own the experiment workflow, evaluation, observability, and failure analysis
 - Avoid unnecessary services until the project needs them
+
+## Detailed diagrams
+
+Component and run-workflow diagrams live in [`diagrams/`](diagrams/README.md).
