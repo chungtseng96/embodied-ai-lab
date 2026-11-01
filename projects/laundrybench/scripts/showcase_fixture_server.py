@@ -2,6 +2,9 @@
 from __future__ import annotations
 
 import argparse
+import os
+import re
+import stat
 from functools import partial
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
@@ -10,6 +13,8 @@ from urllib.parse import parse_qs, urlsplit
 
 class ReadOnlyHandler(SimpleHTTPRequestHandler):
     """Static files plus deterministic API-to-JSON route rewriting."""
+
+    _range = re.compile(r"bytes=(\d*)-(\d*)\Z")
 
     def translate_path(self, path: str) -> str:
         # The Showcase API is a static projection. Keep this mapping exact so
@@ -21,6 +26,87 @@ class ReadOnlyHandler(SimpleHTTPRequestHandler):
             suffix = ".acknowledged.json" if acknowledged and "/compare/" in mapped else ".json"
             path = mapped + suffix
         return super().translate_path(path)
+
+    def send_head(self):
+        """Serve files with single byte-range support for seekable media."""
+        path = self.translate_path(self.path)
+        if os.path.isdir(path):
+            return super().send_head()
+        try:
+            source = open(path, "rb")
+        except OSError:
+            self.send_error(404, "File not found")
+            return None
+
+        metadata = os.fstat(source.fileno())
+        if not stat.S_ISREG(metadata.st_mode):
+            source.close()
+            self.send_error(404, "File not found")
+            return None
+
+        size = metadata.st_size
+        # RFC 9110: Range applies to GET. HEAD reports the full GET metadata.
+        byte_range = self._requested_range(size) if self.command == "GET" else None
+        if byte_range is False:
+            source.close()
+            self.send_response(416, "Requested Range Not Satisfiable")
+            self.send_header("Content-Range", f"bytes */{size}")
+            self.send_header("Accept-Ranges", "bytes")
+            self.send_header("Content-Length", "0")
+            self.end_headers()
+            return None
+
+        self.send_response(206 if byte_range else 200)
+        self.send_header("Content-Type", self.guess_type(path))
+        self.send_header("Last-Modified", self.date_time_string(metadata.st_mtime))
+        self.send_header("Accept-Ranges", "bytes")
+        if byte_range:
+            first, last = byte_range
+            source.seek(first)
+            length = last - first + 1
+            self.send_header("Content-Range", f"bytes {first}-{last}/{size}")
+        else:
+            length = size
+        self._response_length = length
+        self.send_header("Content-Length", str(length))
+        self.end_headers()
+        return source
+
+    def _requested_range(self, size: int) -> tuple[int, int] | None | bool:
+        value = self.headers.get("Range")
+        if value is None:
+            return None
+        if not value.lower().startswith("bytes="):
+            # Unknown range units are ignored and receive the whole resource.
+            return None
+        match = self._range.fullmatch(value.strip())
+        if not match or size == 0:
+            return False
+        first_text, last_text = match.groups()
+        if not first_text:
+            suffix_length = int(last_text or "0")
+            if suffix_length <= 0:
+                return False
+            first, last = max(0, size - suffix_length), size - 1
+        else:
+            first = int(first_text)
+            last = int(last_text) if last_text else size - 1
+            if first >= size or last < first:
+                return False
+            last = min(last, size - 1)
+        return first, last
+
+    def copyfile(self, source, output) -> None:
+        length = getattr(self, "_response_length", None)
+        if length is None:
+            return super().copyfile(source, output)
+        remaining = length
+        while remaining:
+            chunk = source.read(min(64 * 1024, remaining))
+            if not chunk:
+                break
+            output.write(chunk)
+            remaining -= len(chunk)
 
     def do_POST(self) -> None:
         self.send_error(405, "Showcase fixtures are read-only")

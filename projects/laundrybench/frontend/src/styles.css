@@ -2220,7 +2220,7 @@ kbd {
 .showcase-brand small {
   display: block;
   margin-top: 3px;
-  color: #718780;
+  color: #52645f;
   font-size: 8px;
   font-weight: 750;
   letter-spacing: 1.2px;
@@ -2326,7 +2326,7 @@ kbd {
   flex-wrap: wrap;
   gap: 14px 21px;
   margin-top: 20px;
-  color: #637a73;
+  color: #52645f;
   font-size: 11px;
 }
 .showcase-hero-meta > span:first-child {
@@ -2365,7 +2365,7 @@ kbd {
 }
 .visual-window-bar b {
   margin-left: 8px;
-  color: #82948c;
+  color: #52645f;
   font:
     10px ui-monospace,
     SFMono-Regular,
@@ -2391,7 +2391,7 @@ kbd {
   position: absolute;
   top: 18px;
   left: 18px;
-  color: #638078;
+  color: #52645f;
   font-size: 9px;
   font-weight: 800;
   letter-spacing: 1px;
@@ -2413,7 +2413,7 @@ kbd {
   right: 0;
   bottom: 12px;
   left: 0;
-  color: #547568;
+  color: #425b50;
   font-size: 10px;
   font-weight: 700;
   text-align: center;
@@ -2428,7 +2428,7 @@ kbd {
   background: #eee8d6;
 }
 .laundry-right b {
-  color: #85734b;
+  color: #65512e;
 }
 .fabric {
   position: absolute;
@@ -2589,7 +2589,7 @@ kbd {
   display: flex;
   align-items: center;
   gap: 7px;
-  color: #56766d;
+  color: #52645f;
   font-size: 9px;
 }
 .visual-caption-pulse {
@@ -2602,7 +2602,7 @@ kbd {
   display: flex;
   justify-content: space-between;
   padding: 10px 16px;
-  color: #6d8179;
+  color: #52645f;
   font-size: 9px;
 }
 .synthetic-ribbon {
@@ -2761,7 +2761,7 @@ kbd {
   background: #fbfdfb;
 }
 .architecture-node small {
-  color: #719087;
+  color: #52645f;
   font-size: 9px;
   font-weight: 800;
   letter-spacing: 0.6px;
@@ -2771,7 +2771,7 @@ kbd {
   font-size: 13px;
 }
 .architecture-node span {
-  color: #71847c;
+  color: #52645f;
   font-size: 10px;
 }
 .architecture-node-accent {
@@ -2785,7 +2785,7 @@ kbd {
 }
 .architecture-note {
   margin: 13px 0 0;
-  color: #667d74;
+  color: #52645f;
   font-size: 11px;
 }
 .architecture-note span {
@@ -2856,7 +2856,7 @@ kbd {
 }
 .walkthrough-steps p {
   margin: 5px 0 0;
-  color: #60776e;
+  color: #52645f;
   font-size: 11px;
   line-height: 1.6;
 }
@@ -2890,7 +2890,7 @@ kbd {
   display: block;
   overflow-wrap: anywhere;
   margin-top: 10px;
-  color: #72847b;
+  color: #52645f;
   font:
     10px ui-monospace,
     SFMono-Regular,
@@ -2907,7 +2907,7 @@ kbd {
 }
 .experiment-links > span,
 .limitations > strong {
-  color: #667d74;
+  color: #52645f;
   font-size: 10px;
   font-weight: 800;
   letter-spacing: 0.6px;
@@ -3044,7 +3044,7 @@ kbd {
   width: min(1240px, 90vw);
   min-height: 75px;
   margin: 0 auto;
-  color: #6a8077;
+  color: #52645f;
   font-size: 11px;
 }
 .showcase-footer > span {

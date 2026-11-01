@@ -26,6 +26,9 @@ jobs:
       - name: Install browser harness
         working-directory: projects/laundrybench/e2e
         run: npm ci
+      - name: Verify static fixture HTTP range support
+        working-directory: projects/laundrybench/e2e
+        run: python -m unittest test_showcase_fixture_server
       - name: Install Playwright Chromium
         working-directory: projects/laundrybench/e2e
         run: npx playwright install --with-deps chromium
