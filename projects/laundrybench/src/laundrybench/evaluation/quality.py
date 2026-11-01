@@ -27,8 +27,9 @@ def check_episode_quality(
     """Flag suspect evidence in one episode's step records from ``traces/steps.jsonl``.
 
     ``result`` is the episode's ``episodes.jsonl`` record; ``missing_label`` is only
-    checked when it is given. ``joint_limit`` only considers finite targets, so a
-    non-finite target is reported once, as ``nan_action``.
+    checked when it is given. ``nan_action`` and ``joint_limit`` raise at most one flag
+    per episode, counting the offending steps in ``detail``. ``joint_limit`` only
+    considers finite targets, so a non-finite target is reported as ``nan_action``.
     """
 
     if steps:
@@ -44,18 +45,32 @@ def check_episode_quality(
         flags.append(QualityFlag(episode_id, check, detail))
 
     low, high = joint_limits
+    nan_steps = []
+    limit_steps = []
     for record in steps:
         targets = record["joint_targets"]
-        step = record["step"]
         if not all(math.isfinite(value) for value in targets):
-            flag("nan_action", f"step {step}: non-finite joint target in {targets}")
-        outside = [v for v in targets if math.isfinite(v) and not low <= v <= high]
-        if outside:
-            flag("joint_limit", f"step {step}: targets {outside} outside [{low}, {high}]")
+            nan_steps.append(record["step"])
+        if any(math.isfinite(v) and not low <= v <= high for v in targets):
+            limit_steps.append(record["step"])
+    if nan_steps:
+        flag(
+            "nan_action",
+            f"{len(nan_steps)} steps with non-finite joint targets, first at step {nan_steps[0]}",
+        )
+    if limit_steps:
+        flag(
+            "joint_limit",
+            f"{len(limit_steps)} steps with targets outside [{low}, {high}], "
+            f"first at step {limit_steps[0]}",
+        )
 
     run_start = 0
     for index in range(1, len(steps) + 1):
-        if index < len(steps) and steps[index]["joint_targets"] == steps[run_start]["joint_targets"]:
+        if (
+            index < len(steps)
+            and steps[index]["joint_targets"] == steps[run_start]["joint_targets"]
+        ):
             continue
         if index - run_start >= FROZEN_ACTION_STEPS:
             flag(
@@ -80,7 +95,10 @@ def check_episode_quality(
         and not result["success"]
         and result.get("failure_category") in (None, "unspecified")
     ):
-        flag("missing_label", f"failed episode has failure_category {result.get('failure_category')!r}")
+        flag(
+            "missing_label",
+            f"failed episode has failure_category {result.get('failure_category')!r}",
+        )
 
     return flags
 

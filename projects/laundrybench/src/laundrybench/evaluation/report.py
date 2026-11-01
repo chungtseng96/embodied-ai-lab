@@ -129,7 +129,8 @@ def _success_rate(summary: dict) -> str:
     low, high = summary["success_rate_ci"]
     return (
         f"{_percent(summary['success_rate'])} "
-        f"({summary['successes']}/{summary['episodes']}; 95% CI {_percent(low)} to {_percent(high)})"
+        f"({summary['successes']}/{summary['episodes']}; "
+        f"95% CI {_percent(low)} to {_percent(high)})"
     )
 
 

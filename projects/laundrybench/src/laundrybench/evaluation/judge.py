@@ -13,6 +13,9 @@ class SuccessJudge(Protocol):
     Success is judged separately from the post-action observation (ADR 004).
     """
 
+    failure_category: FailureCategory
+    """Label recorded when an episode times out and is not a success."""
+
     def is_success(self, observation: Observation) -> bool:
         """Called after every step; True ends the episode as a success."""
         ...

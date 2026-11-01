@@ -9,7 +9,9 @@ from laundrybench.evaluation.quality import (
 CONTROL_HZ = 10.0
 
 
-def make_steps(targets: list[list[float]], *, dt: float = 0.1, episode_id: str = "ep") -> list[dict]:
+def make_steps(
+    targets: list[list[float]], *, dt: float = 0.1, episode_id: str = "ep"
+) -> list[dict]:
     return [
         {"episode_id": episode_id, "step": i, "timestamp_s": i * dt, "joint_targets": target}
         for i, target in enumerate(targets)
@@ -53,6 +55,26 @@ def test_joint_limit_flagged() -> None:
     targets[2] = [0.0, 0.0, 150.0, 0.0, 0.0, 0.0]
     flags = check_episode_quality(make_steps(targets), control_hz=CONTROL_HZ)
     assert checks(flags) == ["joint_limit"]
+
+
+def test_nan_action_flagged_once_per_episode() -> None:
+    targets = varied_targets(20)
+    for step in (12, 15, 18):
+        targets[step] = [float("nan")] * 6
+    flags = check_episode_quality(make_steps(targets), control_hz=CONTROL_HZ)
+    assert checks(flags) == ["nan_action"]
+    assert "3 steps" in flags[0].detail
+    assert "first at step 12" in flags[0].detail
+
+
+def test_joint_limit_flagged_once_per_episode() -> None:
+    targets = varied_targets(10)
+    for step in (4, 7):
+        targets[step] = [0.0, 0.0, 150.0, 0.0, 0.0, 0.0]
+    flags = check_episode_quality(make_steps(targets), control_hz=CONTROL_HZ)
+    assert checks(flags) == ["joint_limit"]
+    assert "2 steps" in flags[0].detail
+    assert "first at step 4" in flags[0].detail
 
 
 def test_timestamp_gap_flagged() -> None:
