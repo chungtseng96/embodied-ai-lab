@@ -22,6 +22,8 @@ Execution detail lives in [`docs/plans/2026-10-31-laundrybench-v1-implementation
 - [x] Add structured episode logging
 - [x] Harden software contracts before hardware (see plan)
 - [x] Add simple local report generation
+- [x] Add React results browser and persistent frontend manual labels
+- [x] Implement the SO-101 adapter with offline follower contract tests
 
 ## Phase 2 — Hardware bring-up
 

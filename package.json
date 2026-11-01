@@ -1,0 +1,7 @@
+{
+  "name": "laundrybench-workspace",
+  "private": true,
+  "scripts": {
+    "dev": "PYTHONPATH=projects/laundrybench/src python3 projects/laundrybench/scripts/dev_web.py"
+  }
+}
