@@ -11,7 +11,7 @@ from laundrybench.config import load_config
 from laundrybench.evaluation.judge import MockSuccessJudge
 from laundrybench.evaluation.metrics import summarize
 from laundrybench.evaluation.runner import run_episode
-from laundrybench.observability.logger import JsonlEpisodeLogger
+from laundrybench.observability.logger import JsonlEpisodeLogger, JsonlStepLogger
 from laundrybench.observability.manifest import (
     EXPERIMENT_ID_RE,
     RunManifest,
@@ -75,9 +75,12 @@ def main() -> None:
         ),
     )
     episodes_path = experiment_dir / "episodes.jsonl"
-    # The episode logger appends, so a forced re-run starts from an empty log.
+    steps_path = experiment_dir / "traces" / "steps.jsonl"
+    # Both loggers append, so a forced re-run starts from empty logs.
     episodes_path.unlink(missing_ok=True)
+    steps_path.unlink(missing_ok=True)
     logger = JsonlEpisodeLogger(episodes_path)
+    step_logger = JsonlStepLogger(steps_path)
 
     results = []
     for index in range(episodes):
@@ -88,6 +91,7 @@ def main() -> None:
             control_hz=config.evaluation.control_hz,
             timeout_s=timeout_s,
             episode_id=f"{args.experiment}-{index:03d}",
+            on_step=step_logger.log,
         )
         logger.log(result)
         results.append(result)

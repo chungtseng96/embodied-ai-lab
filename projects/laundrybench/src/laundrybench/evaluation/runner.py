@@ -7,7 +7,7 @@ from collections.abc import Callable
 from laundrybench.evaluation.judge import SuccessJudge
 from laundrybench.policies.base import Policy
 from laundrybench.robot.base import Robot
-from laundrybench.types import EpisodeResult, FailureCategory
+from laundrybench.types import Action, EpisodeResult, FailureCategory, Observation
 
 
 def run_episode(
@@ -20,12 +20,16 @@ def run_episode(
     clock: Callable[[], float] = time.perf_counter,
     sleep: Callable[[float], None] = time.sleep,
     episode_id: str | None = None,
+    on_step: Callable[[str, int, Observation, Action], None] | None = None,
 ) -> EpisodeResult:
     """Run one closed-loop episode paced at ``control_hz`` and bounded by ``timeout_s``.
 
     Each step observes, acts, applies, re-observes, and asks the judge. A success
     verdict returns immediately; otherwise the loop sleeps until the next tick.
     ``episode_id`` names the result; a random UUID is used when it is not given.
+    ``on_step``, when given, is called once per step with the episode id, the
+    step index, the pre-action observation, and the action, before the robot
+    applies the action.
     """
 
     if control_hz <= 0:
@@ -46,6 +50,8 @@ def run_episode(
 
         while clock() - start < timeout_s:
             action = policy.act(observation)
+            if on_step is not None:
+                on_step(episode_id, steps, observation, action)
             robot.apply(action)
             observation = robot.observe()
             steps += 1

@@ -109,3 +109,19 @@ def test_runner_uses_given_episode_id(fake_clock) -> None:
         episode_id="exp-001-baseline-001",
     )
     assert result.episode_id == "exp-001-baseline-001"
+
+
+def test_runner_calls_on_step_each_step(fake_clock) -> None:
+    seen = []
+    run_episode(
+        MockRobot(),
+        MockPolicy(),
+        MockSuccessJudge(success_after_steps=3, success_probability=1.0),
+        control_hz=10,
+        timeout_s=5.0,
+        clock=fake_clock.now,
+        sleep=fake_clock.sleep,
+        episode_id="e",
+        on_step=lambda eid, i, o, a: seen.append((eid, i)),
+    )
+    assert seen == [("e", 0), ("e", 1), ("e", 2)]
