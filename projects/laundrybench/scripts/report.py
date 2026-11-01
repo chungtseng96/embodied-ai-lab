@@ -21,7 +21,7 @@ def main() -> None:
         "--baseline",
         type=Path,
         default=None,
-        help="optional baseline experiment directory shown as a second column",
+        help="optional baseline experiment directory: a second report column and summary delta",
     )
     args = parser.parse_args()
 
@@ -29,7 +29,7 @@ def main() -> None:
         if directory is not None and not (directory / "episodes.jsonl").exists():
             parser.error(f"{directory} has no episodes.jsonl; run scripts/evaluate.py first")
 
-    summary = build_summary(args.experiment_dir)
+    summary = build_summary(args.experiment_dir, baseline_dir=args.baseline)
     baseline = build_summary(args.baseline) if args.baseline is not None else None
 
     summary_path = args.experiment_dir / "summary.json"

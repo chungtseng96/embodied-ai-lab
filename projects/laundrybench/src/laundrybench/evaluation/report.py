@@ -45,12 +45,14 @@ def _read_episodes(path: Path) -> list[EpisodeResult]:
     return results
 
 
-def build_summary(experiment_dir: Path) -> dict:
+def build_summary(experiment_dir: Path, baseline_dir: Path | None = None) -> dict:
     """Summarize one experiment directory into the ``summary.json`` payload.
 
     Combines ``summarize()`` over ``episodes.jsonl`` with the Wilson interval for the
     success rate, the ``quality.json`` counts (when that file exists), and the
-    ``manifest.yaml`` fields under ``"manifest"``.
+    ``manifest.yaml`` fields under ``"manifest"``. When ``baseline_dir`` is given,
+    adds ``"delta"``: this experiment minus the baseline for ``success_rate`` and for
+    each failure category seen in either.
     """
 
     experiment_dir = Path(experiment_dir)
@@ -65,6 +67,18 @@ def build_summary(experiment_dir: Path) -> dict:
 
     manifest = yaml.safe_load((experiment_dir / "manifest.yaml").read_text(encoding="utf-8"))
     summary["manifest"] = manifest or {}
+
+    if baseline_dir is not None:
+        baseline = build_summary(baseline_dir)
+        counts = summary["failure_category_counts"]
+        baseline_counts = baseline["failure_category_counts"]
+        summary["delta"] = {
+            "success_rate": summary["success_rate"] - baseline["success_rate"],
+            "failure_category_counts": {
+                category: counts.get(category, 0) - baseline_counts.get(category, 0)
+                for category in sorted(set(counts) | set(baseline_counts))
+            },
+        }
     return summary
 
 

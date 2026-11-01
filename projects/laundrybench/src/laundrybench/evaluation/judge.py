@@ -3,7 +3,7 @@ from __future__ import annotations
 import random
 from typing import Protocol
 
-from laundrybench.types import Observation
+from laundrybench.types import FailureCategory, Observation
 
 
 class SuccessJudge(Protocol):
@@ -23,14 +23,19 @@ class SuccessJudge(Protocol):
 
 
 class MockSuccessJudge:
-    """Seeded stand-in judge for the mock loop. Not a physical outcome."""
+    """Seeded stand-in judge for the mock loop. Not a physical outcome.
+
+    ``failure_category`` is the label the runner records when an episode times out.
+    """
 
     def __init__(
         self,
         seed: int = 0,
         success_after_steps: int = 4,
         success_probability: float = 0.8,
+        failure_category: FailureCategory = FailureCategory.MISSED_GRASP,
     ) -> None:
+        self.failure_category = failure_category
         self._rng = random.Random(seed)
         self._success_after_steps = success_after_steps
         self._success_probability = success_probability

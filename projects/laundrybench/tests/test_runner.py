@@ -11,7 +11,7 @@ def test_episode_times_out_at_timeout_s(fake_clock) -> None:
     result = run_episode(
         MockRobot(),
         MockPolicy(),
-        MockSuccessJudge(success_after_steps=10_000),
+        MockSuccessJudge(success_after_steps=10_000, failure_category=FailureCategory.TIMEOUT),
         control_hz=10,
         timeout_s=2.0,
         clock=fake_clock.now,
