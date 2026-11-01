@@ -4,6 +4,7 @@ import argparse
 import json
 from pathlib import Path
 
+from laundrybench.evaluation.judge import MockSuccessJudge
 from laundrybench.evaluation.metrics import summarize
 from laundrybench.evaluation.runner import run_episode
 from laundrybench.observability.logger import JsonlEpisodeLogger
@@ -19,11 +20,12 @@ def main() -> None:
 
     robot = MockRobot(seed=7)
     policy = MockPolicy()
+    judge = MockSuccessJudge(seed=7)
     logger = JsonlEpisodeLogger(args.output)
 
     results = []
     for _ in range(args.episodes):
-        result = run_episode(robot, policy)
+        result = run_episode(robot, policy, judge)
         logger.log(result)
         results.append(result)
 
