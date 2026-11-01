@@ -25,6 +25,11 @@ robot experience
       └──────────────→ repeat
 ```
 
+The engineering focus is a policy-agnostic evaluation and failure-driven data platform.
+See the [platform direction](docs/architecture/evaluation-platform.md) and
+[ADR 005](docs/architecture/decisions/005-evaluation-and-data-platform-focus.md).
+The mock loop validates software contracts; physical results require real robot evaluation.
+
 ## Repository map
 
 ```text

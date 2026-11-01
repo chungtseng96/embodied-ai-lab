@@ -1,5 +1,8 @@
 # V1 Architecture
 
+See the [evaluation-platform direction](evaluation-platform.md) for the broader roadmap and
+[as-built diagram](diagrams/laundrybench-v1-as-built.svg) for the implemented mock V1.
+
 The first system is intentionally small: one repository, one physical task, clear software boundaries.
 
 ```text
