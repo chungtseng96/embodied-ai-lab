@@ -1,5 +1,7 @@
 # Roadmap
 
+Execution detail lives in [`docs/plans/2026-10-31-laundrybench-v1-implementation.md`](docs/plans/2026-10-31-laundrybench-v1-implementation.md); this file tracks milestones only.
+
 ## Phase 0 — Foundations
 
 - [x] Define V1 benchmark: laundry sorting
@@ -18,6 +20,7 @@
 - [x] Add mock robot/policy
 - [x] Add evaluation runner and metrics
 - [x] Add structured episode logging
+- [ ] Harden software contracts before hardware (see plan)
 - [ ] Add simple local report generation
 
 ## Phase 2 — Hardware bring-up

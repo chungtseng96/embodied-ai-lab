@@ -53,12 +53,16 @@ The interfaces are intentionally model-agnostic so ACT, SmolVLA, or future polic
 
 ```text
 src/laundrybench/
-├── robot/          # hardware boundary + mock robot
-├── policies/       # policy boundary + mock policy
-├── data/           # dataset/episode helpers
-├── evaluation/     # closed-loop runner + metrics
-├── observability/  # structured logging
-└── types.py        # shared observation/action/result types
+├── robot/              # hardware boundary + mock robot
+│   └── so101_spec.py   # SO-101 joint names and units
+├── policies/           # policy boundary + mock policy
+├── data/               # dataset/episode helpers
+├── evaluation/         # closed-loop runner + metrics
+│   └── judge.py        # episode success judge
+├── observability/      # structured logging
+│   └── manifest.py     # experiment run manifest
+├── config.py           # load and validate configs/*.yaml
+└── types.py            # shared observation/action/result types
 ```
 
 ## Run the mock loop
@@ -66,22 +70,18 @@ src/laundrybench/
 From the repo root:
 
 ```bash
-make install
-make test
+python3.11 -m venv .venv && .venv/bin/python -m pip install -e "projects/laundrybench[dev]"
+make check
 make demo
 ```
 
+`make` uses `.venv/bin/python` when it exists; pass `PYTHON=...` to override.
+
 The mock robot is only a development stand-in. It lets us test experiment/evaluation plumbing before hardware arrives; its success rate has no physical meaning.
 
-## Planned physical integration
+## Plan of record
 
-1. Bring up SO-101 using LeRobot.
-2. Implement a real `Robot` adapter.
-3. Verify joint-state and camera data.
-4. Record demonstrations.
-5. Add the first real policy adapter.
-6. Run `EXP-001` using a fixed physical evaluation protocol.
-7. Choose one failure mode from evidence and run `EXP-002`.
+What comes next, including physical integration, is tracked in the [V1 implementation plan](../../docs/plans/2026-10-31-laundrybench-v1-implementation.md), which works through the findings in the [V1 design review](../../docs/plans/2026-10-31-laundrybench-design-review.md).
 
 ## What this project should demonstrate
 
