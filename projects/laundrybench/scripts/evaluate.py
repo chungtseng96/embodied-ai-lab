@@ -21,6 +21,7 @@ from laundrybench.observability.manifest import (
 from laundrybench.policies.faulty import FaultyMockPolicy
 from laundrybench.policies.mock import MockPolicy
 from laundrybench.robot.mock import MockRobot
+from laundrybench.types import FailureCategory
 
 
 def main() -> None:
@@ -66,7 +67,12 @@ def main() -> None:
         policy = FaultyMockPolicy()
         # NaN targets must never be judged a success; the mock judge only counts
         # steps, so give the faulty run a judge whose threshold is never reached.
-        judge = MockSuccessJudge(seed=config.evaluation.seed, success_after_steps=10_000)
+        # Every faulty episode therefore runs out the clock, so label it a timeout.
+        judge = MockSuccessJudge(
+            seed=config.evaluation.seed,
+            success_after_steps=10_000,
+            failure_category=FailureCategory.TIMEOUT,
+        )
     else:
         policy = MockPolicy()
         judge = MockSuccessJudge(seed=config.evaluation.seed)
