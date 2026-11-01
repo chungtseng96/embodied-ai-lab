@@ -41,6 +41,17 @@ and a working data-to-evaluation loop remain the primary portfolio evidence.
 
 Do not create competing copies of these instructions.
 
+## Reconcile the older agent-pattern proposal
+
+Open [PR #3](https://github.com/chungtseng96/embodied-ai-lab/pull/3) already
+proposes a PR template, experiment metadata checks and doc routing. Carry its
+useful acceptance/evidence and mock-versus-physical distinction forward.
+The template added alongside this plan does that while using current commands:
+main does not currently print the proposed GATE PASS marker.
+Do not merge #3 wholesale: its agent guides describe older task_success and
+unloaded-config contracts that conflict with current code. Review experiment
+metadata checks separately against today's artifact schema before adopting them.
+
 ## Verified gaps
 
 1. **The orchestration is described, not checked in.** The factory README
