@@ -3218,8 +3218,8 @@ kbd {
   }
   .walkthrough-section,
   .showcase-explorer {
-    margin-right: -5.55vw;
-    margin-left: -5.55vw;
+    margin-right: -5vw;
+    margin-left: -5vw;
     padding-right: 5vw;
     padding-left: 5vw;
   }

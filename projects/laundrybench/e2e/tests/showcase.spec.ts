@@ -157,8 +157,51 @@ test("read-only Showcase walkthrough works on desktop and mobile and records a d
     const dimensions = await page.evaluate(() => ({
       viewportWidth: document.documentElement.clientWidth,
       documentWidth: document.documentElement.scrollWidth,
+      rootMetrics: [document.documentElement, document.body].map((element) => ({
+        selector: element.tagName.toLowerCase(),
+        clientWidth: element.clientWidth,
+        scrollWidth: element.scrollWidth,
+        overflowX: getComputedStyle(element).overflowX,
+      })),
+      offenders: Array.from(document.querySelectorAll<HTMLElement>("body *"))
+        .flatMap((element) => {
+          const rect = element.getBoundingClientRect();
+          const style = getComputedStyle(element);
+          const visible = style.display !== "none" && style.visibility !== "hidden" && Number(style.opacity) > 0;
+          if (!visible || rect.width <= 0 || rect.height <= 0 || (rect.left >= 0 && rect.right <= document.documentElement.clientWidth)) {
+            return [];
+          }
+          const chain: Array<Record<string, string | number>> = [];
+          let ancestor: HTMLElement | null = element;
+          while (ancestor && chain.length < 8) {
+            const ancestorRect = ancestor.getBoundingClientRect();
+            const ancestorStyle = getComputedStyle(ancestor);
+            const classes = typeof ancestor.className === "string" ? ancestor.className : ancestor.getAttribute("class") || "";
+            chain.push({
+              selector: `${ancestor.tagName.toLowerCase()}${ancestor.id ? `#${ancestor.id}` : ""}${classes.split(/\s+/).filter(Boolean).slice(0, 3).map((name) => `.${name}`).join("")}`,
+              left: Number(ancestorRect.left.toFixed(2)),
+              right: Number(ancestorRect.right.toFixed(2)),
+              width: Number(ancestorRect.width.toFixed(2)),
+              overflowX: ancestorStyle.overflowX,
+              clientWidth: ancestor.clientWidth,
+              scrollWidth: ancestor.scrollWidth,
+            });
+            ancestor = ancestor.parentElement;
+          }
+          const classes = typeof element.className === "string" ? element.className : element.getAttribute("class") || "";
+          return [{
+            selector: `${element.tagName.toLowerCase()}${element.id ? `#${element.id}` : ""}${classes.split(/\s+/).filter(Boolean).slice(0, 3).map((name) => `.${name}`).join("")}`,
+            text: (element.textContent || "").replace(/\s+/g, " ").trim().slice(0, 100),
+            left: Number(rect.left.toFixed(2)),
+            right: Number(rect.right.toFixed(2)),
+            width: Number(rect.width.toFixed(2)),
+            overflowX: style.overflowX,
+            chain,
+          }];
+        })
+        .slice(0, 30),
     }));
-    expect(dimensions.documentWidth).toBeLessThanOrEqual(dimensions.viewportWidth);
+    expect(dimensions.documentWidth, JSON.stringify(dimensions, null, 2)).toBeLessThanOrEqual(dimensions.viewportWidth);
     const mobileAxe = await new AxeBuilder({ page })
       .withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"])
       .analyze();
