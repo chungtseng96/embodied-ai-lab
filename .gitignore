@@ -32,3 +32,6 @@ projects/laundrybench/data/processed/
 .DS_Store
 .vscode/
 .idea/
+
+# Local agent continuation scratch
+/LOOP-STATE.md

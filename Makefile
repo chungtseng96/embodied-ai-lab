@@ -2,7 +2,7 @@ PYTHON ?= $(if $(wildcard .venv/bin/python),.venv/bin/python,python3)
 PYTHON_CMD := $(if $(findstring /,$(PYTHON)),$(abspath $(PYTHON)),$(PYTHON))
 PROJECT := projects/laundrybench
 
-.PHONY: install test demo lint check lerobot-check host-check
+.PHONY: install test demo lint check smoke lerobot-check host-check
 
 install:
 	cd $(PROJECT) && $(PYTHON_CMD) -m pip install -e ".[dev]"
@@ -16,7 +16,11 @@ demo:
 lint:
 	cd $(PROJECT) && $(PYTHON_CMD) -m ruff check .
 
-check: test lint
+check: test lint smoke
+
+smoke:
+	$(PYTHON_CMD) -m compileall -q $(PROJECT)/scripts
+	$(PYTHON_CMD) $(PROJECT)/scripts/check_host_setup.py
 
 lerobot-check:
 	cd $(PROJECT) && $(PYTHON_CMD) scripts/check_lerobot.py

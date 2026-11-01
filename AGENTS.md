@@ -37,6 +37,9 @@ reproduce it.
   architecture boundary.
 - Prefer a small, testable change over a broad framework addition.
 
+Documentation navigation is in [`docs/README.md`](docs/README.md).
+Use the PR template to report evidence and distinguish mock checks from physical validation.
+
 ## Repository map
 
 - `projects/laundrybench/`: the installable Python project and its tests.
@@ -55,6 +58,8 @@ reproduce it.
   skill before performing a repeated workflow.
 
 ## Required validation
+
+`make check` runs lint, tests, and script smoke checks; CI uses the same command.
 
 For Python changes in LaundryBench, run with the default Python (this matches
 CI, which uses stock Python 3.11 without LeRobot):

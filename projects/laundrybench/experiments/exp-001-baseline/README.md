@@ -1,5 +1,10 @@
 # EXP-001 — Baseline
 
+**Date:** 2026-11-01
+**Status:** Planned
+**Hardware:** physical
+**Owner:** Chung-Tseng Wang
+
 ## Question
 
 How reliably can the first working policy sort one sock from one non-sock item under fixed conditions?

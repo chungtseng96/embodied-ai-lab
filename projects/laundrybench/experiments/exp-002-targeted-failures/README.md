@@ -1,5 +1,10 @@
 # EXP-002 — Targeted Failure Data
 
+**Date:** 2026-11-01
+**Status:** Planned
+**Hardware:** physical
+**Owner:** Chung-Tseng Wang
+
 ## Question
 
 After establishing a baseline, can we improve one dominant failure mode using targeted additional data?

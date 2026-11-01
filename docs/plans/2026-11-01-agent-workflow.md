@@ -43,14 +43,13 @@ Do not create competing copies of these instructions.
 
 ## Reconcile the older agent-pattern proposal
 
-Open [PR #3](https://github.com/chungtseng96/embodied-ai-lab/pull/3) already
-proposes a PR template, experiment metadata checks and doc routing. Carry its
-useful acceptance/evidence and mock-versus-physical distinction forward.
-The template added alongside this plan does that while using current commands:
-main does not currently print the proposed GATE PASS marker.
-Do not merge #3 wholesale: its agent guides describe older task_success and
-unloaded-config contracts that conflict with current code. Review experiment
-metadata checks separately against today's artifact schema before adopting them.
+The reconciliation of [PR #3](https://github.com/chungtseng96/embodied-ai-lab/pull/3)
+retains documentation routing, experiment metadata checks and useful templates.
+Its stale task_success, unloaded-config and missing-report descriptions are
+excluded; the current main agent guides and hooks remain authoritative.
+The evidence and independent-review PR template added alongside this plan is
+preserved. The shared `make check` command includes script smoke checks and is
+used by CI; it does not print a GATE PASS marker.
 
 ## Verified gaps
 
@@ -63,9 +62,9 @@ metadata checks separately against today's artifact schema before adopting them.
    it is not proof that the final commit passed. The edit-path guard handles
    Edit/Write calls, not every shell command. CI is the shared verification
    gate; hooks are local assistance, not a security boundary.
-3. **The evidence is hard to discover.** There is no default PR template.
-   Validation, rejected approaches, independent findings, and human decisions
-   can disappear into chats.
+3. **Evidence needs consistent adoption.** A default PR template now records
+   validation, independent findings and human decisions. The next pilot must
+   demonstrate its use on a shipped change rather than leaving evidence in chats.
 4. **The factory briefs are tied to one historical plan.** Generalizing them
    should follow the next actual task, using an issue's acceptance criteria and
    touched boundaries. A good reviewer should check behavior and missing cases,
@@ -78,7 +77,7 @@ that a historical agent run was unreviewed or that a hook failed in practice.
 
 | Order | Change | Acceptance evidence |
 | --- | --- | --- |
-| Now | Add a concise PR evidence template | A new PR records issue/spec, commands, limitations and agent/human responsibilities |
+| Implemented | Concise PR evidence template | A new PR records issue/spec, commands, limitations and agent/human responsibilities |
 | Next product change | Pilot the template on results UI work | Screenshot, regenerated report from declared mock input, checks on final SHA, independent review findings |
 | Next hardware change | Pilot on adapter or recording wrapper | Dry-run/config tests plus an explicitly operator-run hardware check; no fabricated hardware pass |
 | After two pilots | Capture a short engineering case study | Links to issue, commits, review findings, corrected defect and result; actual time/cost only if available |
