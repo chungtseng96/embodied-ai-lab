@@ -32,3 +32,4 @@ observe -> act -> log -> evaluate -> diagnose -> change -> compare
 - External USB camera ordered
 - Fundamental robotics concepts in progress
 - Software skeleton uses mock robot/policy interfaces until hardware integration begins
+- `make check` needs Python 3.11+: `python3.11 -m venv .venv && .venv/bin/python -m pip install -e "projects/laundrybench[dev]"`

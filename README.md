@@ -72,9 +72,12 @@ embodied-ai-lab/
 
 ## Quick start: mock software loop
 
+`make check` needs Python 3.11+. Create the virtual environment once; `make`
+then uses `.venv/bin/python` by default:
+
 ```bash
-make install
-make test
+python3.11 -m venv .venv && .venv/bin/python -m pip install -e "projects/laundrybench[dev]"
+make check
 make demo
 ```
 
