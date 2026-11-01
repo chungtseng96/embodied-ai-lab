@@ -1639,3 +1639,32 @@ footer span {
     padding-top: 18px;
   }
 }
+
+.status.pending {
+  background: #f0f4f3;
+  border-color: #dbe4e1;
+  color: #58716c;
+}
+.status.excluded,
+.excluded-pill {
+  background: #f4eef8;
+  border-color: #e2d5eb;
+  color: #755889;
+}
+.pending-dot {
+  background: #96a8a3;
+}
+.decision-options label {
+  width: 33.333%;
+  min-width: 0;
+  padding: 8px 4px;
+  font-size: 13px;
+}
+@media (max-width: 760px) {
+  .filters button {
+    font-size: 13px;
+  }
+  .episode-facts span {
+    font-size: 12px;
+  }
+}

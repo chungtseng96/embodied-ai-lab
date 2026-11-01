@@ -9,6 +9,7 @@ from pathlib import Path
 
 import pytest
 
+from laundrybench.evaluation.report import build_summary
 from laundrybench.web import create_server
 
 
@@ -89,21 +90,32 @@ def test_labels_persist_and_overlay_current_evidence_without_rewriting_originals
     with running(tmp_path) as port:
         status, listing = request(port, "/api/runs")
         assert status == 200
-        assert listing["runs"][0]["summary"]["success_rate"] == 0.5
+        assert listing["runs"][0]["summary"]["success_rate"] is None
         status, detail = request(port, PATH)
         assert detail["episodes"][0]["annotation"]["status"] == "unlabelled"
+        assert detail["episodes"][0]["review_status"] == "provisional"
+        assert detail["episodes"][0]["outcome_source"] == "recorded"
         status, detail = request(port, LABEL, "PUT", label())
         assert status == 200
         assert detail["revision"] == 1
+        assert detail["summary"]["reviewed_episodes"] == 1
+        assert detail["summary"]["pending_episodes"] == 1
         assert detail["summary"]["success_rate"] == 0
-        assert detail["summary"]["failure_category_counts"] == {"missed_grasp": 1, "timeout": 1}
+        assert detail["summary"]["failure_category_counts"] == {"missed_grasp": 1}
         assert detail["episodes"][0]["original_outcome"]["success"] is True
+        assert detail["episodes"][0]["effective_outcome"]["success"] is False
+        assert detail["episodes"][0]["review_status"] == "reviewed"
+        assert detail["episodes"][0]["outcome_source"] == "label"
+        assert detail["episodes"][0]["annotation"]["status"] == "labelled"
         assert detail["episodes"][0]["annotation"]["notes"] == "operator outcome after episode"
+        assert detail["summary"] == build_summary(run)
         assert request(port, LABEL, "PUT", label())[0] == 409
         status, trace = request(port, PATH + "/episodes/episode-001/trace")
         assert status == 200
         assert trace["steps"][0]["joint_targets"] == [None]
     assert (run / "episodes.jsonl").read_bytes() == original
+    sidecar = json.loads((run / "labels.json").read_text())
+    assert sidecar["schema_version"] == 2
     assert json.loads((run / "summary.json").read_text())["success_rate"] == 0.99
     with running(tmp_path) as port:
         _, detail = request(port, PATH)
@@ -116,7 +128,8 @@ def test_labels_persist_and_overlay_current_evidence_without_rewriting_originals
             )
         _, detail = request(port, PATH)
         assert detail["summary"]["episodes"] == 3
-        assert detail["summary"]["success_rate"] == pytest.approx(1 / 3)
+        assert detail["summary"]["success_rate"] == 0
+        assert detail["summary"]["pending_episodes"] == 2
 
 
 def test_concurrent_labels_only_one_stale_revision_can_win(tmp_path):
@@ -222,14 +235,112 @@ def test_intervention_retains_the_failure_root_cause(tmp_path):
         status, detail = request(port, LABEL, "PUT", label(intervention=True))
         assert status == 200
         assert detail["episodes"][0]["failure_category"] == "missed_grasp"
-        assert detail["summary"]["intervention_rate"] == 0.5
+        assert detail["summary"]["intervention_rate"] == 1.0
         assert detail["summary"]["success_rate"] == 0
+
+
+def test_excluded_episode_requires_reason_and_stays_out_of_reviewed_metrics(tmp_path):
+    run = seed(tmp_path)
+    original = (run / "episodes.jsonl").read_bytes()
+    payload = {
+        "status": "excluded",
+        "exclusion_reason": "trace is incomplete",
+        "expected_revision": 0,
+    }
+    with running(tmp_path) as port:
+        assert request(port, LABEL, "PUT", {**payload, "exclusion_reason": " "})[0] == 422
+        status, detail = request(port, LABEL, "PUT", payload)
+        assert status == 200
+        assert detail["episodes"][0]["review_status"] == "excluded"
+        assert detail["episodes"][0]["outcome_source"] == "recorded"
+        assert detail["episodes"][0]["effective_outcome"] == detail["episodes"][0][
+            "original_outcome"
+        ]
+        assert detail["episodes"][0]["annotation"]["status"] == "excluded"
+        assert detail["episodes"][0]["annotation"]["exclusion_reason"] == "trace is incomplete"
+        assert detail["summary"]["excluded_episodes"] == 1
+        assert detail["summary"]["metric_episodes"] == 0
+        assert detail["summary"]["success_rate"] is None
+        restored = request(
+            port,
+            LABEL,
+            "PUT",
+            label(revision=1, success=True, intervention=False, failure_category=None),
+        )
+        assert restored[0] == 200
+        assert restored[1]["episodes"][0]["review_status"] == "reviewed"
+        assert restored[1]["summary"]["excluded_episodes"] == 0
+        assert restored[1]["summary"]["metric_episodes"] == 1
+        assert restored[1]["summary"]["success_rate"] == 1.0
+    assert (run / "episodes.jsonl").read_bytes() == original
+
+
+def test_legacy_sidecar_is_upgraded_on_write_and_preserves_every_review(tmp_path):
+    run = seed(tmp_path)
+    third_record = {
+        "episode_id": "episode-003",
+        "success": True,
+        "duration_s": 3.0,
+        "intervention": False,
+        "failure_category": None,
+    }
+    with (run / "episodes.jsonl").open("a") as handle:
+        handle.write(json.dumps(third_record) + "\n")
+    legacy_success = {
+        "success": True,
+        "intervention": False,
+        "failure_category": None,
+        "notes": "legacy success review",
+        "revision": 1,
+        "updated_at": "2026-11-01T00:00:00+00:00",
+    }
+    legacy_failure = {
+        "success": False,
+        "intervention": False,
+        "failure_category": "timeout",
+        "notes": "legacy failure review",
+        "revision": 2,
+        "updated_at": "2026-11-01T00:00:00+00:00",
+    }
+    (run / "labels.json").write_text(
+        json.dumps(
+            {
+                "revision": 2,
+                "labels": {
+                    "episode-001": legacy_success,
+                    "episode-002": legacy_failure,
+                },
+            }
+        )
+    )
+
+    with running(tmp_path) as port:
+        initial = request(port, PATH)[1]
+        assert initial["episodes"][0]["review_status"] == "reviewed"
+        assert initial["summary"]["success_rate"] == 0.5
+        response = request(
+            port,
+            PATH + "/episodes/episode-003/label",
+            "PUT",
+            label(revision=2, success=True, failure_category=None),
+        )
+        assert response[0] == 200
+        migrated = json.loads((run / "labels.json").read_text())
+        assert migrated["schema_version"] == 2
+        assert migrated["labels"]["episode-001"]["status"] == "reviewed"
+        assert migrated["labels"]["episode-001"]["notes"] == "legacy success review"
+        assert migrated["labels"]["episode-002"]["status"] == "reviewed"
+        assert migrated["labels"]["episode-002"]["notes"] == "legacy failure review"
+        assert migrated["labels"]["episode-003"]["status"] == "reviewed"
+        assert request(port, PATH)[1]["summary"]["reviewed_episodes"] == 3
 
 
 @pytest.mark.parametrize(
     "field,value",
     [
+        ("episode_id", "../outside"),
         ("duration_s", float("nan")),
+        ("duration_s", 10**400),
         ("duration_s", -1),
         ("duration_s", True),
         ("success", "false"),

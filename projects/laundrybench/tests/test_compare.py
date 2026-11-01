@@ -36,6 +36,29 @@ def _run(tmp_path, experiment_id, policy, judge, fake_clock):
     return experiment_dir
 
 
+def _review_recorded_outcomes(experiment_dir):
+    records = [
+        json.loads(line)
+        for line in (experiment_dir / "episodes.jsonl").read_text().splitlines()
+        if line.strip()
+    ]
+    labels = {}
+    for revision, record in enumerate(records, start=1):
+        success = record["success"]
+        labels[record["episode_id"]] = {
+            "status": "reviewed",
+            "success": success,
+            "intervention": record.get("intervention", False),
+            "failure_category": None if success else record.get("failure_category", "unspecified"),
+            "notes": "synthetic review for comparison test",
+            "revision": revision,
+            "updated_at": "2026-11-01T00:00:00+00:00",
+        }
+    (experiment_dir / "labels.json").write_text(
+        json.dumps({"schema_version": 2, "revision": len(labels), "labels": labels})
+    )
+
+
 def test_faulty_policy_emits_nan_from_fault_step() -> None:
     policy = FaultyMockPolicy(fault_step=2)
     policy.reset()
@@ -79,6 +102,15 @@ def test_faulty_candidate_is_worse_than_mock_baseline(tmp_path, fake_clock) -> N
     baseline_quality = json.loads((baseline_dir / "quality.json").read_text())
     assert "nan_action" not in {flag["check"] for flag in baseline_quality["flags"]}
 
+    baseline_pending = build_summary(baseline_dir)
+    candidate_pending = build_summary(candidate_dir, baseline_dir=baseline_dir)
+    assert baseline_pending["success_rate"] is None
+    assert candidate_pending["success_rate"] is None
+    assert candidate_pending["delta"]["success_rate"] is None
+
+    # Recorded mock outcomes remain provisional until a reviewer supplies labels.
+    _review_recorded_outcomes(baseline_dir)
+    _review_recorded_outcomes(candidate_dir)
     baseline = build_summary(baseline_dir)
     summary = build_summary(candidate_dir, baseline_dir=baseline_dir)
     assert summary["success_rate"] < baseline["success_rate"]

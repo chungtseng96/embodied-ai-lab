@@ -1,64 +1,55 @@
 from __future__ import annotations
 
 import json
-import math
 from html import escape
 from pathlib import Path
 from string import Template
 
 import yaml
 
-from laundrybench.evaluation.metrics import summarize
-from laundrybench.types import EpisodeResult, FailureCategory
+from laundrybench.evaluation.outcomes import (
+    LABEL_FILE,
+    summarize_outcomes,
+    validate_episode_records,
+    validate_labels,
+    wilson_interval,  # noqa: F401 - retained as a public compatibility export
+)
 
 
-def wilson_interval(successes: int, n: int, z: float = 1.96) -> tuple[float, float]:
-    """Wilson score interval for a binomial proportion; ``(0.0, 0.0)`` when ``n == 0``."""
-
-    if n == 0:
-        return (0.0, 0.0)
-    p = successes / n
-    denominator = 1 + z * z / n
-    center = (p + z * z / (2 * n)) / denominator
-    half_width = z * math.sqrt(p * (1 - p) / n + z * z / (4 * n * n)) / denominator
-    return (max(0.0, center - half_width), min(1.0, center + half_width))
-
-
-def _read_episodes(path: Path) -> list[EpisodeResult]:
+def _read_episodes(path: Path) -> list[dict]:
     results = []
     with path.open(encoding="utf-8") as handle:
         for line in handle:
             if not line.strip():
                 continue
-            record = json.loads(line)
-            category = record.get("failure_category")
-            results.append(
-                EpisodeResult(
-                    episode_id=record["episode_id"],
-                    success=record["success"],
-                    duration_s=record["duration_s"],
-                    intervention=record.get("intervention", False),
-                    failure_category=FailureCategory(category) if category is not None else None,
-                    metadata=record.get("metadata", {}),
-                )
-            )
+            results.append(json.loads(line))
     return results
 
 
 def build_summary(experiment_dir: Path, baseline_dir: Path | None = None) -> dict:
     """Summarize one experiment directory into the ``summary.json`` payload.
 
-    Combines ``summarize()`` over ``episodes.jsonl`` with the Wilson interval for the
-    success rate, the ``quality.json`` counts (when that file exists), and the
-    ``manifest.yaml`` fields under ``"manifest"``. When ``baseline_dir`` is given,
-    adds ``"delta"``: this experiment minus the baseline for ``success_rate`` and for
-    each failure category seen in either.
+    Headline metrics use reviewed, non-excluded labels from ``labels.json``;
+    unreviewed original outcomes remain provisional. Quality counts and manifest
+    fields are added when present. A baseline delta is unavailable if either run
+    has no reviewed episodes.
     """
 
     experiment_dir = Path(experiment_dir)
-    results = _read_episodes(experiment_dir / "episodes.jsonl")
-    summary: dict = dict(summarize(results))
-    summary["success_rate_ci"] = list(wilson_interval(summary["successes"], summary["episodes"]))
+    records = validate_episode_records(_read_episodes(experiment_dir / "episodes.jsonl"))
+    labels_path = experiment_dir / LABEL_FILE
+    try:
+        stored_labels = (
+            json.loads(labels_path.read_text(encoding="utf-8"))
+            if labels_path.exists()
+            else {"revision": 0, "labels": {}}
+        )
+        labels = validate_labels(stored_labels, {record["episode_id"] for record in records})
+    except (TypeError, ValueError) as error:
+        raise ValueError(f"{labels_path}: {error}") from error
+    summary: dict = summarize_outcomes(
+        records, labels["labels"], label_revision=labels["revision"]
+    )
 
     quality_path = experiment_dir / "quality.json"
     if quality_path.exists():
@@ -73,7 +64,11 @@ def build_summary(experiment_dir: Path, baseline_dir: Path | None = None) -> dic
         counts = summary["failure_category_counts"]
         baseline_counts = baseline["failure_category_counts"]
         summary["delta"] = {
-            "success_rate": summary["success_rate"] - baseline["success_rate"],
+            "success_rate": (
+                summary["success_rate"] - baseline["success_rate"]
+                if summary["success_rate"] is not None and baseline["success_rate"] is not None
+                else None
+            ),
             "failure_category_counts": {
                 category: counts.get(category, 0) - baseline_counts.get(category, 0)
                 for category in sorted(set(counts) | set(baseline_counts))
@@ -145,15 +140,16 @@ $evidence_note</p>
 <div class="scroll"><table>
 $metric_rows
 </table></div>
-<p class="note">Success rate includes a 95% Wilson confidence interval.
-Completion time includes successful episodes only.</p>
+<p class="note">Success rate includes a 95% Wilson confidence interval when available.
+Completion time includes reviewed successes only.</p>
 </section>
 <section aria-labelledby="failures-heading">
 <h2 id="failures-heading">Where episodes failed</h2>
 <div class="scroll"><table>
 $failure_rows
 </table></div>
-<p class="note">Counts describe observed labels; quality flags are reported separately.</p>
+<p class="note">Quality flags are recorded as captured; they are not recomputed from
+review labels.</p>
 </section>
 <details><summary>Reproduction details &amp; provenance</summary>
 <div class="scroll"><table>$manifest_rows</table></div>
@@ -177,13 +173,19 @@ def _percent(value: float) -> str:
 
 
 def _success_rate(summary: dict) -> str:
-    if not summary["episodes"]:
-        return "— (no episodes recorded)"
-    low, high = summary["success_rate_ci"]
+    denominator = summary.get("metric_episodes", summary["episodes"])
+    if not denominator or summary["success_rate"] is None:
+        return "— (no reviewed episodes)"
+    interval = summary.get("success_rate_ci")
+    ci = (
+        f"95% CI {_percent(interval[0])} to {_percent(interval[1])}"
+        if interval is not None
+        else "95% CI unavailable"
+    )
     return (
         f"{_percent(summary['success_rate'])} "
-        f"({summary['successes']}/{summary['episodes']}; "
-        f"95% CI {_percent(low)} to {_percent(high)})"
+        f"({summary['successes']}/{denominator} reviewed; "
+        f"{ci})"
     )
 
 
@@ -191,7 +193,7 @@ def _quality(summary: dict) -> str:
     quality = summary.get("quality")
     if quality is None:
         return "n/a (no quality.json)"
-    return f"{quality['flagged']} of {quality['episodes']} episodes flagged"
+    return f"{quality['flagged']} of {quality['episodes']} recorded episodes flagged"
 
 
 def _failure_cell(counts: dict[str, int], category: str, scale: int) -> str:
@@ -209,25 +211,35 @@ def _provenance(summary: dict) -> tuple[str, str]:
 
 
 def _cards(summary: dict, baseline: dict | None) -> str:
-    low, high = summary["success_rate_ci"]
+    interval = summary["success_rate_ci"]
+    ci_detail = (
+        f"95% CI {_percent(interval[0])}–{_percent(interval[1])}"
+        if interval is not None
+        else "95% CI unavailable"
+    )
     quality = summary.get("quality")
     cards = [
-        ("Success rate", _percent(summary["success_rate"]) if summary["episodes"] else "—",
-         (f"{summary['successes']} / {summary['episodes']} episodes · "
-          f"95% CI {_percent(low)}–{_percent(high)}")
-         if summary["episodes"] else "No episodes recorded; confidence interval unavailable"),
+        ("Success rate", _percent(summary["success_rate"])
+         if summary["success_rate"] is not None else "—",
+         (f"{summary['successes']} / {summary['metric_episodes']} reviewed · "
+          f"{ci_detail}")
+         if summary["metric_episodes"] else
+         "No reviewed episodes; confidence interval unavailable"),
         ("Median completion", f"{summary['median_completion_time_s']:.2f}s"
-         if summary["successes"] else "—",
+         if summary["successes"] and summary["median_completion_time_s"] is not None else "—",
          "Successful episodes only" if summary["successes"] else "No successful episodes"),
         ("Intervention rate", _percent(summary["intervention_rate"])
-         if summary["episodes"] else "—", "Operator interventions"),
-        ("Quality flags", str(quality["flagged"]) if quality else "—",
-         f"of {quality['episodes']} episodes" if quality else "No quality report available"),
+         if summary["intervention_rate"] is not None else "—", "Reviewed episodes only"),
+        ("Recorded quality flags", str(quality["flagged"]) if quality else "—",
+         f"of {quality['episodes']} recorded episodes"
+         if quality else "No quality report available"),
     ]
     rendered = []
     for index, (label, value, detail) in enumerate(cards):
         delta = ""
-        if index == 0 and baseline is not None and summary["episodes"] and baseline["episodes"]:
+        candidate_n = summary.get("metric_episodes", summary["episodes"])
+        baseline_n = baseline.get("metric_episodes", baseline["episodes"]) if baseline else 0
+        if index == 0 and baseline is not None and candidate_n and baseline_n:
             difference = 100 * (summary["success_rate"] - baseline["success_rate"])
             delta = f'<div class="delta">{difference:+.1f} pp vs baseline</div>'
         rendered.append(
@@ -241,6 +253,30 @@ def _cards(summary: dict, baseline: dict | None) -> str:
 def render_html(summary: dict, baseline: dict | None = None) -> str:
     """Render a self-contained static HTML report; adds a baseline column when given."""
 
+    # Preserve rendering support for callers that construct pre-contract summary
+    # dictionaries directly. build_summary always emits these v2 fields.
+    summary = dict(summary)
+    summary.setdefault("metric_episodes", summary.get("reviewed_episodes", summary["episodes"]))
+    summary.setdefault("reviewed_episodes", summary["metric_episodes"])
+    summary.setdefault("reviewed_rate", 1.0 if summary["episodes"] else None)
+    summary.setdefault("success_rate_ci", None)
+    summary.setdefault("pending_episodes", 0)
+    summary.setdefault("excluded_episodes", 0)
+    summary.setdefault("label_revision", 0)
+    summary.setdefault("outcome_schema_version", None)
+    if baseline is not None:
+        baseline = dict(baseline)
+        baseline.setdefault(
+            "metric_episodes", baseline.get("reviewed_episodes", baseline["episodes"])
+        )
+        baseline.setdefault("reviewed_episodes", baseline["metric_episodes"])
+        baseline.setdefault("reviewed_rate", 1.0 if baseline["episodes"] else None)
+        baseline.setdefault("success_rate_ci", None)
+        baseline.setdefault("pending_episodes", 0)
+        baseline.setdefault("excluded_episodes", 0)
+        baseline.setdefault("label_revision", 0)
+        baseline.setdefault("outcome_schema_version", None)
+
     summaries = [summary] if baseline is None else [summary, baseline]
     labels = ["Candidate"] if baseline is None else ["Candidate", "Baseline"]
     header = _row(["", *labels], header=True)
@@ -253,11 +289,22 @@ def render_html(summary: dict, baseline: dict | None = None) -> str:
 
     metrics = [
         ("Success rate", _success_rate),
+        (
+            "Reviewed episodes",
+            lambda s: f"{s.get('reviewed_episodes', s['episodes'])} / {s['episodes']}",
+        ),
+        ("Pending episodes", lambda s: str(s["pending_episodes"])),
+        ("Excluded episodes", lambda s: str(s["excluded_episodes"])),
+        ("Reviewed rate", lambda s: _percent(s["reviewed_rate"])
+         if s["reviewed_rate"] is not None else "— (no episodes recorded)"),
+        ("Label revision", lambda s: str(s["label_revision"])),
+        ("Outcome schema version", lambda s: str(s["outcome_schema_version"] or "n/a")),
         ("Median completion time (s)", lambda s: f"{s['median_completion_time_s']:.3f}"
-         if s["successes"] else "— (no successful episodes)"),
+         if s["successes"] and s["median_completion_time_s"] is not None
+         else "— (no successful episodes)"),
         ("Intervention rate", lambda s: _percent(s["intervention_rate"])
-         if s["episodes"] else "— (no episodes recorded)"),
-        ("Quality flags", _quality),
+         if s["intervention_rate"] is not None else "— (no reviewed episodes)"),
+        ("Recorded quality flags", _quality),
     ]
     metric_rows = [header] + [
         _row([escape(name), *(escape(render(s)) for s in summaries)]) for name, render in metrics
@@ -273,7 +320,10 @@ def render_html(summary: dict, baseline: dict | None = None) -> str:
             for c in categories
         ]
     else:
-        message = "No failed episodes." if summary["episodes"] else "No episodes recorded."
+        metric_episodes = summary.get("metric_episodes", summary["episodes"])
+        message = "No reviewed failures." if metric_episodes else (
+            "No reviewed episodes." if summary["episodes"] else "No episodes recorded."
+        )
         failure_rows = [_row([message])]
 
     badge, note = _provenance(summary)

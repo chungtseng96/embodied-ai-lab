@@ -10,11 +10,19 @@ const detail: Detail = {
   manifest: { robot_implementation: "MockRobot", policy_name: "mock-policy" },
   summary: {
     episodes: 1,
-    successes: 1,
-    success_rate: 1,
-    median_completion_time_s: 2,
-    intervention_rate: 0,
+    reviewed_episodes: 0,
+    pending_episodes: 1,
+    excluded_episodes: 0,
+    metric_episodes: 0,
+    successes: 0,
+    success_rate: null,
+    reviewed_rate: 0,
+    success_rate_ci: null,
+    median_completion_time_s: null,
+    intervention_rate: null,
     failure_category_counts: {},
+    outcome_schema_version: 2,
+    label_revision: 0,
   },
   quality: null,
   episodes: [
@@ -24,6 +32,13 @@ const detail: Detail = {
       duration_s: 2,
       intervention: false,
       failure_category: null,
+      review_status: "provisional",
+      outcome_source: "recorded",
+      effective_outcome: {
+        success: true,
+        intervention: false,
+        failure_category: null,
+      },
       original_outcome: {
         success: true,
         intervention: false,
@@ -42,7 +57,54 @@ function api(
     .spyOn(globalThis, "fetch")
     .mockImplementation(async (input, options) => {
       const url = String(input);
-      if (options?.method === "PUT")
+      if (options?.method === "PUT") {
+        const payload = JSON.parse(String(options.body || "{}"));
+        const excluded = payload.status === "excluded";
+        const originalEpisode = runDetail.episodes[0];
+        const reviewedOutcome = {
+          success: payload.success ?? originalEpisode.effective_outcome.success,
+          intervention:
+            payload.intervention ??
+            originalEpisode.effective_outcome.intervention,
+          failure_category:
+            payload.failure_category ??
+            (payload.success === true
+              ? null
+              : originalEpisode.effective_outcome.failure_category),
+        };
+        const updatedEpisode: Episode = excluded
+          ? {
+              ...originalEpisode,
+              success: originalEpisode.original_outcome.success,
+              intervention: originalEpisode.original_outcome.intervention,
+              failure_category:
+                originalEpisode.original_outcome.failure_category,
+              review_status: "excluded",
+              outcome_source: "recorded",
+              effective_outcome: originalEpisode.original_outcome,
+              annotation: {
+                status: "excluded",
+                exclusion_reason: payload.exclusion_reason,
+              },
+            }
+          : {
+              ...originalEpisode,
+              ...reviewedOutcome,
+              review_status: "reviewed",
+              outcome_source: "label",
+              effective_outcome: reviewedOutcome,
+              annotation: { status: "labelled", notes: payload.notes || "" },
+            };
+        const reviewedCount = excluded
+          ? runDetail.summary.reviewed_episodes
+          : Math.max(1, runDetail.summary.reviewed_episodes);
+        const excludedCount = excluded
+          ? Math.max(1, runDetail.summary.excluded_episodes)
+          : runDetail.summary.excluded_episodes;
+        const metricEpisodes = reviewedCount;
+        const successes = excluded
+          ? runDetail.summary.successes
+          : Number(reviewedOutcome.success);
         return new Response(
           JSON.stringify(
             putStatus === 409
@@ -50,22 +112,46 @@ function api(
               : {
                   ...runDetail,
                   revision: 1,
-                  labelled_episodes: 1,
-                  episodes: [
-                    {
-                      ...runDetail.episodes[0],
-                      success: false,
-                      failure_category: "missed_grasp",
-                      annotation: {
-                        status: "labelled",
-                        notes: "Observed slip",
-                      },
-                    },
-                  ],
+                  labelled_episodes: reviewedCount + excludedCount,
+                  summary: {
+                    ...runDetail.summary,
+                    reviewed_episodes: reviewedCount,
+                    pending_episodes: Math.max(
+                      0,
+                      runDetail.summary.episodes -
+                        reviewedCount -
+                        excludedCount,
+                    ),
+                    excluded_episodes: excludedCount,
+                    metric_episodes: metricEpisodes,
+                    successes,
+                    success_rate:
+                      metricEpisodes > 0 ? successes / metricEpisodes : null,
+                    reviewed_rate:
+                      runDetail.summary.episodes > 0
+                        ? reviewedCount / runDetail.summary.episodes
+                        : null,
+                    success_rate_ci: metricEpisodes > 0 ? [0, 0.8] : null,
+                    median_completion_time_s: null,
+                    intervention_rate:
+                      metricEpisodes > 0
+                        ? Number(reviewedOutcome.intervention)
+                        : null,
+                    failure_category_counts:
+                      metricEpisodes > 0 && !reviewedOutcome.success
+                        ? {
+                            [reviewedOutcome.failure_category || "unspecified"]:
+                              1,
+                          }
+                        : {},
+                    label_revision: 1,
+                  },
+                  episodes: [updatedEpisode],
                 },
           ),
           { status: putStatus },
         );
+      }
       if (url.endsWith("/trace"))
         return new Response(JSON.stringify({ steps: [] }));
       if (url === "/api/runs")
@@ -101,7 +187,7 @@ it("saves a manual review with the current revision and preserves original evide
     screen.getByText("Reviewed", { selector: ".pill" }),
   ).toBeInTheDocument();
   expect(
-    screen.getByText("Original outcome").querySelector("b"),
+    screen.getByText("Recorded outcome").querySelector("b"),
   ).toHaveTextContent("Success");
 });
 it("keeps edits visible on a conflicting review and requires explicit reload", async () => {
@@ -122,6 +208,76 @@ it("keeps edits visible on a conflicting review and requires explicit reload", a
     screen.queryByText("Review saved. Metrics refreshed."),
   ).not.toBeInTheDocument();
 });
+it("excludes an episode with the exact reason payload and restores it as a reviewed failure", async () => {
+  const fetch = api();
+  render(<App />);
+  await screen.findByRole("heading", { name: "Manual review" });
+  await userEvent.click(screen.getByLabelText("Exclude"));
+  const reason = screen.getByLabelText("Reason for exclusion");
+  expect(reason).toBeRequired();
+  await userEvent.type(reason, "   ");
+  await userEvent.click(screen.getByRole("button", { name: "Save exclusion" }));
+  expect(
+    screen.getByText("Enter a reason before excluding this episode."),
+  ).toBeInTheDocument();
+  expect(fetch.mock.calls.some(([, init]) => init?.method === "PUT")).toBe(
+    false,
+  );
+  await userEvent.clear(reason);
+  await userEvent.type(reason, "Camera view was fully occluded");
+  await userEvent.click(screen.getByRole("button", { name: "Save exclusion" }));
+  await screen.findByText("Review saved. Metrics refreshed.");
+  expect(
+    screen.getByText("Excluded", { selector: ".pill" }),
+  ).toBeInTheDocument();
+  const puts = fetch.mock.calls.filter(([, init]) => init?.method === "PUT");
+  expect(JSON.parse(String(puts[0]?.[1]?.body))).toEqual({
+    status: "excluded",
+    exclusion_reason: "Camera view was fully occluded",
+    expected_revision: 0,
+  });
+  expect(
+    screen.getByText("0 reviewed · 0 pending · 1 excluded"),
+  ).toBeInTheDocument();
+
+  await userEvent.click(screen.getByLabelText("Failure"));
+  await userEvent.selectOptions(
+    screen.getByLabelText("Failure category"),
+    "missed_grasp",
+  );
+  await userEvent.click(screen.getByRole("button", { name: "Save review" }));
+  await screen.findByText("Review saved. Metrics refreshed.", { exact: true });
+  const updatedPuts = fetch.mock.calls.filter(
+    ([, init]) => init?.method === "PUT",
+  );
+  expect(JSON.parse(String(updatedPuts[1]?.[1]?.body))).toMatchObject({
+    success: false,
+    failure_category: "missed_grasp",
+    expected_revision: 1,
+  });
+  expect(
+    screen.getByText("Reviewed", { selector: ".pill" }),
+  ).toBeInTheDocument();
+});
+
+it("keeps zero-denominator metrics null and suppresses baseline deltas", async () => {
+  const baseline: Detail = { ...detail, id: "exp-002-baseline" };
+  api(200, detail, [detail, baseline]);
+  render(<App />);
+  await screen.findByRole("heading", { name: "Manual review" });
+  await userEvent.click(screen.getByText("Run overview"));
+  await userEvent.selectOptions(
+    screen.getByLabelText("Baseline experiment"),
+    baseline.id,
+  );
+  expect(screen.getByText("0 of 0 reviewed")).toBeInTheDocument();
+  expect(
+    screen.getByText("Success rate", { selector: "span" }),
+  ).toBeInTheDocument();
+  expect(screen.queryByText(/pp vs baseline/)).not.toBeInTheDocument();
+  expect(screen.getAllByText("—", { selector: ".kpi strong" })).toHaveLength(3);
+});
+
 it("shows network errors without inventing runs", async () => {
   vi.spyOn(globalThis, "fetch").mockRejectedValue(new Error("Server offline"));
   render(<App />);
@@ -166,6 +322,13 @@ it("searches episode IDs, failure categories, and notes without losing edits, an
     episode_id: "exp-001-multi-001",
     success: false,
     failure_category: "missed_grasp",
+    review_status: "provisional",
+    outcome_source: "recorded",
+    effective_outcome: {
+      success: false,
+      intervention: false,
+      failure_category: "missed_grasp",
+    },
     original_outcome: {
       success: false,
       intervention: false,
@@ -176,18 +339,53 @@ it("searches episode IDs, failure categories, and notes without losing edits, an
     ...detail.episodes[0],
     episode_id: "exp-001-multi-002",
     success: false,
+    failure_category: "unspecified",
     original_outcome: {
       success: false,
       intervention: false,
       failure_category: null,
     },
+    review_status: "reviewed",
+    outcome_source: "label",
+    effective_outcome: {
+      success: false,
+      intervention: false,
+      failure_category: "unspecified",
+    },
     annotation: { status: "labelled", notes: "towel snag" },
+  };
+  const excludedEpisode: Episode = {
+    ...detail.episodes[0],
+    episode_id: "exp-001-multi-003",
+    review_status: "excluded",
+    outcome_source: "recorded",
+    annotation: { status: "excluded", exclusion_reason: "blurred clip" },
   };
   const multi: Detail = {
     ...detail,
     id: "exp-001-multi",
-    summary: { ...detail.summary, episodes: 3 },
-    episodes: [detail.episodes[0], categoryEpisode, notesEpisode],
+    labelled_episodes: 2,
+    summary: {
+      ...detail.summary,
+      episodes: 4,
+      reviewed_episodes: 1,
+      pending_episodes: 2,
+      excluded_episodes: 1,
+      metric_episodes: 1,
+      successes: 0,
+      success_rate: 0,
+      reviewed_rate: 1 / 4,
+      success_rate_ci: [0, 0.79],
+      median_completion_time_s: null,
+      intervention_rate: 0,
+      failure_category_counts: { unspecified: 1 },
+    },
+    episodes: [
+      detail.episodes[0],
+      categoryEpisode,
+      notesEpisode,
+      excludedEpisode,
+    ],
   };
   const other: Detail = {
     ...detail,
@@ -213,6 +411,14 @@ it("searches episode IDs, failure categories, and notes without losing edits, an
   expect(
     screen.getByRole("button", { name: /exp-001-multi-002/ }),
   ).toBeInTheDocument();
+  await userEvent.clear(search);
+  await userEvent.type(search, "blurred clip");
+  expect(
+    screen.getByRole("button", { name: /exp-001-multi-003/ }),
+  ).toBeInTheDocument();
+  expect(
+    screen.getByText("1 reviewed · 2 pending · 1 excluded"),
+  ).toBeInTheDocument();
 
   await userEvent.clear(search);
   await userEvent.type(
@@ -231,6 +437,31 @@ it("searches episode IDs, failure categories, and notes without losing edits, an
   expect(screen.getByLabelText("Review notes")).toHaveValue(
     "Keep this unsaved draft",
   );
+
+  await userEvent.clear(search);
+  await userEvent.click(screen.getByRole("button", { name: "Reviewed" }));
+  expect(
+    screen.getByRole("button", { name: /exp-001-multi-002/ }),
+  ).toBeInTheDocument();
+  expect(
+    screen.queryByRole("button", { name: /exp-001-multi-001/ }),
+  ).not.toBeInTheDocument();
+  await userEvent.click(screen.getByRole("button", { name: "Failures" }));
+  expect(
+    screen.getByRole("button", { name: /exp-001-multi-002/ }),
+  ).toBeInTheDocument();
+  await userEvent.click(screen.getByRole("button", { name: "Successes" }));
+  expect(
+    screen.getByText("No episodes match this filter."),
+  ).toBeInTheDocument();
+  await userEvent.click(screen.getByRole("button", { name: "Excluded" }));
+  expect(
+    screen.getByRole("button", { name: /exp-001-multi-003/ }),
+  ).toBeInTheDocument();
+  await userEvent.click(screen.getByRole("button", { name: "Needs review" }));
+  expect(
+    screen.getByRole("button", { name: /exp-001-baseline-000/ }),
+  ).toBeInTheDocument();
 
   await userEvent.click(
     screen.getByRole("button", { name: /exp-002-candidate 1 episodes/ }),
