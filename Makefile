@@ -11,7 +11,7 @@ test:
 	cd $(PROJECT) && $(PYTHON_CMD) -m pytest
 
 demo:
-	cd $(PROJECT) && $(PYTHON_CMD) scripts/evaluate.py --episodes 10
+	cd $(PROJECT) && $(PYTHON_CMD) scripts/evaluate.py --episodes 10 --experiment exp-000-mock-smoke --force
 
 lint:
 	cd $(PROJECT) && $(PYTHON_CMD) -m ruff check .

@@ -20,11 +20,13 @@ def run_episode(
     timeout_s: float,
     clock: Callable[[], float] = time.perf_counter,
     sleep: Callable[[float], None] = time.sleep,
+    episode_id: str | None = None,
 ) -> EpisodeResult:
     """Run one closed-loop episode paced at ``control_hz`` and bounded by ``timeout_s``.
 
     Each step observes, acts, applies, re-observes, and asks the judge. A success
     verdict returns immediately; otherwise the loop sleeps until the next tick.
+    ``episode_id`` names the result; a random UUID is used when it is not given.
     """
 
     if not math.isfinite(control_hz):
@@ -36,6 +38,8 @@ def run_episode(
     if timeout_s <= 0:
         raise ValueError(f"timeout_s must be positive, got {timeout_s}")
 
+    if episode_id is None:
+        episode_id = str(uuid.uuid4())
     period_s = 1.0 / control_hz
     # A frozen or stalled clock must not hang an evaluation run, so cap steps as well as time.
     max_iterations = math.ceil(timeout_s * control_hz) + 1
@@ -55,7 +59,7 @@ def run_episode(
 
             if judge.is_success(observation):
                 return EpisodeResult(
-                    episode_id=str(uuid.uuid4()),
+                    episode_id=episode_id,
                     success=True,
                     duration_s=clock() - start,
                     metadata={"steps": steps, "policy": policy.name, "control_hz": control_hz},
@@ -66,7 +70,7 @@ def run_episode(
 
         success = judge.on_timeout(observation)
         return EpisodeResult(
-            episode_id=str(uuid.uuid4()),
+            episode_id=episode_id,
             success=success,
             duration_s=clock() - start,
             failure_category=None if success else FailureCategory.TIMEOUT,
