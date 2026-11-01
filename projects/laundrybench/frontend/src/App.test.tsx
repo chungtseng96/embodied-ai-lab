@@ -432,7 +432,7 @@ it("advances through the filtered pending queue after a confirmed save", async (
   await userEvent.click(screen.getByRole("button", { name: "Needs review" }));
   await userEvent.click(
     screen.getByRole("button", {
-      name: "Save review and go to next pending episode",
+      name: "Save & next: save review and go to next pending episode",
     }),
   );
   const nextHeading = await screen.findByRole("heading", {
@@ -457,7 +457,7 @@ it("clears the selection at the end of the filtered queue without wrapping to an
   );
   await userEvent.click(
     screen.getByRole("button", {
-      name: "Save review and go to next pending episode",
+      name: "Save & next: save review and go to next pending episode",
     }),
   );
   expect(
@@ -500,7 +500,7 @@ it("ignores shortcuts while a native button has focus", async () => {
   render(<App />);
   await screen.findByRole("heading", { name: "Manual review" });
   const saveNext = screen.getByRole("button", {
-    name: "Save review and go to next pending episode",
+    name: "Save & next: save review and go to next pending episode",
   });
   saveNext.focus();
   fireEvent.keyDown(saveNext, { key: "2", bubbles: true });
@@ -555,7 +555,7 @@ it("does not let a delayed save response move the user after they navigate", asy
   await screen.findByRole("heading", { name: "Manual review" });
   await userEvent.click(
     screen.getByRole("button", {
-      name: "Save review and go to next pending episode",
+      name: "Save & next: save review and go to next pending episode",
     }),
   );
   await waitFor(() =>
@@ -617,7 +617,7 @@ it("keeps revision 2 when a delayed revision 1 save response arrives", async () 
   await screen.findByRole("heading", { name: "Manual review" });
   await userEvent.click(
     screen.getByRole("button", {
-      name: "Save review and go to next pending episode",
+      name: "Save & next: save review and go to next pending episode",
     }),
   );
   await waitFor(() =>
@@ -806,6 +806,18 @@ it("requires a fresh acknowledgment when the baseline selection changes and retu
     ),
   ).toHaveLength(2);
   expect(
+    screen.getByRole("heading", { name: "Per-run outcome summaries" }),
+  ).toBeInTheDocument();
+  const preAckSuccessRate = screen.getByRole("row", { name: /Success rate/ });
+  expect(
+    within(preAckSuccessRate).getAllByText(
+      "— (0 reviewed episodes; no interval)",
+    ),
+  ).toHaveLength(2);
+  expect(
+    within(preAckSuccessRate).getByText("Withheld until acknowledged"),
+  ).toBeInTheDocument();
+  expect(
     screen.queryByRole("heading", { name: "Descriptive outcome differences" }),
   ).not.toBeInTheDocument();
   await userEvent.click(await screen.findByRole("button", { name: ackName }));
@@ -834,6 +846,207 @@ it("requires a fresh acknowledgment when the baseline selection changes and retu
   expect(acknowledgedRequests).toHaveLength(1);
 });
 
+it("retries an acknowledged comparison after a request failure", async () => {
+  const candidate = {
+    ...withEpisodes(makeEpisode("exp-101-candidate-000")),
+    id: "exp-101-candidate",
+    experiment: metadata(),
+  };
+  const baseline = {
+    ...withEpisodes(makeEpisode("exp-100-baseline-000")),
+    id: "exp-100-baseline",
+    experiment: metadata({ protocolVersion: "2" }),
+  };
+  const fetch = api(200, candidate, [candidate, baseline]);
+  const implementation = fetch.getMockImplementation()!;
+  let acknowledgedCalls = 0;
+  fetch.mockImplementation(async (input, options) => {
+    const url = String(input);
+    if (url.includes("acknowledge_incompatible=1")) {
+      acknowledgedCalls += 1;
+      if (acknowledgedCalls === 1) {
+        return new Response(
+          JSON.stringify({ error: "Compare temporarily unavailable" }),
+          { status: 503 },
+        );
+      }
+    }
+    return implementation(input, options);
+  });
+  render(<App />);
+  await screen.findByText("Laundry fold trial");
+  await userEvent.click(screen.getByText("Run overview"));
+  await userEvent.selectOptions(
+    screen.getByLabelText("Baseline experiment"),
+    baseline.id,
+  );
+  expect(
+    await screen.findByRole("status", { name: "Compatibility: mismatched" }),
+  ).toBeInTheDocument();
+  await userEvent.click(
+    screen.getByRole("button", {
+      name: "Acknowledge incompatible comparison and show descriptive delta",
+    }),
+  );
+  expect(
+    await screen.findByText("Compare temporarily unavailable"),
+  ).toBeInTheDocument();
+  await userEvent.click(
+    screen.getByRole("button", { name: "Retry comparison" }),
+  );
+  expect(
+    await screen.findByRole("heading", {
+      name: "Descriptive outcome differences",
+    }),
+  ).toBeInTheDocument();
+  expect(acknowledgedCalls).toBe(2);
+  expect(
+    fetch.mock.calls.filter(([input]) =>
+      String(input).includes("acknowledge_incompatible=1"),
+    ),
+  ).toHaveLength(2);
+});
+
+it("ignores a delayed comparison after the baseline selection changes", async () => {
+  const candidate = {
+    ...withEpisodes(makeEpisode("exp-101-candidate-000")),
+    id: "exp-101-candidate",
+    experiment: metadata(),
+  };
+  const baselineA = {
+    ...withEpisodes(makeEpisode("exp-100-baseline-000")),
+    id: "exp-100-baseline",
+    experiment: metadata({ protocolVersion: "2" }),
+  };
+  const baselineB = {
+    ...withEpisodes(makeEpisode("exp-099-baseline-000")),
+    id: "exp-099-baseline",
+    experiment: metadata(),
+  };
+  const fetch = api(200, candidate, [candidate, baselineA, baselineB]);
+  const implementation = fetch.getMockImplementation()!;
+  let releaseA!: () => void;
+  let oldRequestSettled = false;
+  const pausedA = new Promise<void>((resolve) => {
+    releaseA = resolve;
+  });
+  fetch.mockImplementation(async (input, options) => {
+    const url = String(input);
+    if (url.includes(`/compare/${baselineA.id}`)) {
+      await pausedA;
+      const response = await implementation(input, options);
+      oldRequestSettled = true;
+      return response;
+    }
+    return implementation(input, options);
+  });
+  render(<App />);
+  await screen.findByText("Laundry fold trial");
+  await userEvent.click(screen.getByText("Run overview"));
+  const picker = screen.getByLabelText("Baseline experiment");
+  await userEvent.selectOptions(picker, baselineA.id);
+  await waitFor(() =>
+    expect(
+      fetch.mock.calls.some(([input]) =>
+        String(input).includes(`/compare/${baselineA.id}`),
+      ),
+    ).toBe(true),
+  );
+  await userEvent.selectOptions(picker, baselineB.id);
+  expect(
+    await screen.findByRole("status", { name: "Compatibility: matched" }),
+  ).toBeInTheDocument();
+  await act(async () => {
+    releaseA();
+  });
+  await waitFor(() => expect(oldRequestSettled).toBe(true));
+  expect(
+    screen.getByRole("status", { name: "Compatibility: matched" }),
+  ).toBeInTheDocument();
+  expect(
+    screen.queryByRole("status", { name: "Compatibility: mismatched" }),
+  ).not.toBeInTheDocument();
+  expect(
+    screen.queryByRole("button", {
+      name: "Acknowledge incompatible comparison and show descriptive delta",
+    }),
+  ).not.toBeInTheDocument();
+});
+
+it("does not show an older baseline detail after a newer label revision loads", async () => {
+  const candidate = {
+    ...withEpisodes(makeEpisode("exp-101-candidate-000")),
+    id: "exp-101-candidate",
+    experiment: metadata(),
+  };
+  const oldEpisode = makeEpisode("exp-100-baseline-old");
+  const baselineV0 = {
+    ...withEpisodes(oldEpisode),
+    id: "exp-100-baseline",
+    experiment: metadata(),
+  };
+  const baselineV1 = {
+    ...baselineV0,
+    revision: 1,
+    summary: { ...baselineV0.summary, label_revision: 1 },
+    episodes: [makeEpisode("exp-100-baseline-new")],
+  };
+  const fetch = api(200, candidate, [candidate, baselineV0]);
+  const implementation = fetch.getMockImplementation()!;
+  let refreshComplete = false;
+  let releaseOldDetail!: () => void;
+  let oldDetailSettled = false;
+  const pausedOldDetail = new Promise<void>((resolve) => {
+    releaseOldDetail = resolve;
+  });
+  fetch.mockImplementation(async (input, options) => {
+    const url = String(input);
+    if (url === "/api/runs" && refreshComplete) {
+      return new Response(JSON.stringify({ runs: [candidate, baselineV1] }));
+    }
+    if (url === `/api/runs/${baselineV0.id}`) {
+      if (!refreshComplete) {
+        await pausedOldDetail;
+        oldDetailSettled = true;
+        return new Response(JSON.stringify(baselineV0));
+      }
+      return new Response(JSON.stringify(baselineV1));
+    }
+    return implementation(input, options);
+  });
+  render(<App />);
+  await screen.findByText("Laundry fold trial");
+  await userEvent.click(screen.getByText("Run overview"));
+  await userEvent.selectOptions(
+    screen.getByLabelText("Baseline experiment"),
+    baselineV0.id,
+  );
+  await waitFor(() =>
+    expect(
+      fetch.mock.calls.some(
+        ([input]) => String(input) === `/api/runs/${baselineV0.id}`,
+      ),
+    ).toBe(true),
+  );
+  refreshComplete = true;
+  await userEvent.click(
+    screen.getByRole("button", { name: "Refresh experiments" }),
+  );
+  const baselineEpisodePicker = screen.getByLabelText(
+    "Baseline representative episode",
+  );
+  await waitFor(() => expect(baselineEpisodePicker).toBeEnabled());
+  await userEvent.selectOptions(baselineEpisodePicker, "exp-100-baseline-new");
+  expect(screen.getByText("exp-100-baseline-new")).toBeInTheDocument();
+  expect(screen.queryByText("exp-100-baseline-old")).not.toBeInTheDocument();
+  await act(async () => {
+    releaseOldDetail();
+  });
+  await waitFor(() => expect(oldDetailSettled).toBe(true));
+  expect(screen.getByText("exp-100-baseline-new")).toBeInTheDocument();
+  expect(screen.queryByText("exp-100-baseline-old")).not.toBeInTheDocument();
+});
+
 it("labels legacy run context as missing", async () => {
   api();
   render(<App />);
@@ -842,6 +1055,40 @@ it("labels legacy run context as missing", async () => {
       "No experiment context sidecar is recorded for this run. It may be a legacy run.",
     ),
   ).toBeInTheDocument();
+});
+
+it("merges a newer sidecar context without replacing newer outcome revisions", async () => {
+  const current = {
+    ...detail,
+    revision: 2,
+    experiment: { ...metadata({ revision: 0 }), name: "Older context" },
+  };
+  const incoming = {
+    ...detail,
+    revision: 1,
+    experiment: { ...metadata({ revision: 1 }), name: "Newer context" },
+  };
+  const fetch = api(200, current, [current]);
+  const implementation = fetch.getMockImplementation()!;
+  let refreshed = false;
+  fetch.mockImplementation(async (input, options) => {
+    const url = String(input);
+    if (refreshed && url === "/api/runs") {
+      return new Response(JSON.stringify({ runs: [incoming] }));
+    }
+    if (refreshed && url === `/api/runs/${current.id}`) {
+      return new Response(JSON.stringify(incoming));
+    }
+    return implementation(input, options);
+  });
+  render(<App />);
+  expect(await screen.findByText("Older context")).toBeInTheDocument();
+  refreshed = true;
+  await userEvent.click(
+    screen.getByRole("button", { name: "Refresh experiments" }),
+  );
+  expect(await screen.findByText("Newer context")).toBeInTheDocument();
+  expect(screen.getByText("Revision 2")).toBeInTheDocument();
 });
 
 it("shows network errors without inventing runs", async () => {

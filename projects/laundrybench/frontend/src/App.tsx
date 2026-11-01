@@ -281,7 +281,7 @@ function LabelForm({
             className="save-next"
             type="submit"
             data-save-next="true"
-            aria-label="Save review and go to next pending episode"
+            aria-label="Save & next: save review and go to next pending episode"
           >
             Save &amp; next
           </button>
@@ -626,6 +626,7 @@ function RunComparison({
   }>();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [requestGeneration, setRequestGeneration] = useState(0);
   const comparisonKey = baseline
     ? `${candidate.id}:${candidate.revision}:${candidate.experiment?.revision ?? "legacy"}/${baseline.id}:${baseline.revision}:${baseline.experiment?.revision ?? "legacy"}/${selectionEpoch}`
     : "";
@@ -686,6 +687,7 @@ function RunComparison({
     baseline?.experiment?.revision,
     comparisonKey,
     acknowledged,
+    requestGeneration,
   ]);
 
   if (!baseline) return null;
@@ -722,9 +724,15 @@ function RunComparison({
         </p>
       )}
       {error && (
-        <p role="alert" className="error">
-          {error}
-        </p>
+        <div role="alert" className="error">
+          <p>{error}</p>
+          <button
+            type="button"
+            onClick={() => setRequestGeneration((value) => value + 1)}
+          >
+            Retry comparison
+          </button>
+        </div>
       )}
       {current && (
         <>
@@ -807,10 +815,12 @@ function RunComparison({
               </button>
             </div>
           )}
-          {delta && (
+          {current && (
             <>
               <h4 className="comparison-delta-heading">
-                Descriptive outcome differences
+                {delta
+                  ? "Descriptive outcome differences"
+                  : "Per-run outcome summaries"}
               </h4>
               <div className="comparison-table-wrap">
                 <table className="comparison-table">
@@ -819,7 +829,9 @@ function RunComparison({
                       <th scope="col">Measure</th>
                       <th scope="col">Candidate</th>
                       <th scope="col">Baseline</th>
-                      <th scope="col">Candidate − baseline</th>
+                      <th scope="col">
+                        {delta ? "Candidate − baseline" : "Difference"}
+                      </th>
                     </tr>
                   </thead>
                   <tbody>
@@ -834,21 +846,30 @@ function RunComparison({
                         {current.baseline.metric_episodes} reviewed
                       </td>
                       <td>
-                        {delta.successes >= 0 ? "+" : ""}
-                        {delta.successes}
+                        {delta
+                          ? `${delta.successes >= 0 ? "+" : ""}${delta.successes}`
+                          : "Withheld until acknowledged"}
                       </td>
                     </tr>
                     <tr>
                       <th scope="row">Success rate</th>
                       <td>{formatRate(current.candidate, "success_rate")}</td>
                       <td>{formatRate(current.baseline, "success_rate")}</td>
-                      <td>{deltaRateText(delta.success_rate)}</td>
+                      <td>
+                        {delta
+                          ? deltaRateText(delta.success_rate)
+                          : "Withheld until acknowledged"}
+                      </td>
                     </tr>
                     <tr>
                       <th scope="row">Decision coverage</th>
                       <td>{formatRate(current.candidate, "reviewed_rate")}</td>
                       <td>{formatRate(current.baseline, "reviewed_rate")}</td>
-                      <td>{deltaRateText(delta.reviewed_rate)}</td>
+                      <td>
+                        {delta
+                          ? deltaRateText(delta.reviewed_rate)
+                          : "Withheld until acknowledged"}
+                      </td>
                     </tr>
                     <tr>
                       <th scope="row">Intervention rate</th>
@@ -858,15 +879,21 @@ function RunComparison({
                       <td>
                         {formatRate(current.baseline, "intervention_rate")}
                       </td>
-                      <td>{deltaRateText(delta.intervention_rate)}</td>
+                      <td>
+                        {delta
+                          ? deltaRateText(delta.intervention_rate)
+                          : "Withheld until acknowledged"}
+                      </td>
                     </tr>
                   </tbody>
                 </table>
               </div>
-              <p className="muted small">
-                Episodes are not paired by ID. Select representative evidence
-                independently for each run below.
-              </p>
+              {delta && (
+                <p className="muted small">
+                  Episodes are not paired by ID. Select representative evidence
+                  independently for each run below.
+                </p>
+              )}
             </>
           )}
           <FailureComparison
@@ -1152,7 +1179,7 @@ export default function App() {
     let active = true;
     setDetailLoading(true);
     setDetailError("");
-    setRun(null);
+    setRun((current) => (current?.id === selected ? current : null));
     setNotice("");
     setFilter("all");
     request<Detail>(runPath(selected))

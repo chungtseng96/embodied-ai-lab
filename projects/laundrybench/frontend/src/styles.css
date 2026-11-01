@@ -90,11 +90,11 @@ small,
   font-size: 11px;
 }
 .muted {
-  color: #6f8184;
+  color: #52645f;
 }
 .eyebrow {
   font-size: 10px;
-  color: #577577;
+  color: #52645f;
   font-weight: 700;
   letter-spacing: 1.8px;
 }
@@ -250,7 +250,7 @@ small,
 .run-link small {
   display: block;
   font-size: 9px;
-  color: #82a5a8;
+  color: #8eb4b3;
   margin-top: 5px;
 }
 .run-dot {
@@ -334,7 +334,7 @@ main {
 }
 .run-code {
   font-family: ui-monospace, monospace;
-  color: #70888b;
+  color: #52645f;
   font-size: 10px;
   margin-top: 10px;
 }
@@ -375,7 +375,7 @@ main {
   background: #edf4f0;
   border-radius: 7px;
   font-size: 10px;
-  color: #607b73;
+  color: #52645f;
   line-height: 1.5;
 }
 .evidence-banner strong {
@@ -391,7 +391,7 @@ main {
 }
 .baseline-picker {
   font-size: 10px;
-  color: #768b8c;
+  color: #52645f;
   display: flex;
   align-items: center;
   gap: 10px;
@@ -427,7 +427,7 @@ select {
 }
 .kpi > span {
   font-size: 10px;
-  color: #6b8281;
+  color: #52645f;
 }
 .kpi strong {
   display: block;
@@ -441,13 +441,13 @@ select {
   font-style: normal;
   font-size: 15px;
   font-weight: 500;
-  color: #8a9c99;
+  color: #52645f;
   margin-left: 3px;
   letter-spacing: 0;
 }
 .kpi small {
   display: block;
-  color: #899b97;
+  color: #52645f;
   font-size: 9px;
 }
 .kpi em {
@@ -525,7 +525,7 @@ select {
   gap: 12px;
   margin: 14px 0;
   font-size: 10px;
-  color: #657b7a;
+  color: #52645f;
 }
 .failure-row > div {
   height: 5px;
@@ -548,7 +548,7 @@ dl {
   margin: 0;
 }
 dt {
-  color: #849591;
+  color: #52645f;
   font-size: 10px;
 }
 dd {
@@ -592,7 +592,7 @@ dd {
   border: 0;
   padding: 6px 9px;
   font-size: 10px;
-  color: #7f928e;
+  color: #52645f;
   white-space: nowrap;
 }
 .filters button.selected {
@@ -621,7 +621,7 @@ dd {
 }
 .table-caption span {
   font-size: 8px;
-  color: #92a39e;
+  color: #52645f;
   letter-spacing: 0.6px;
   font-weight: 400;
 }
@@ -657,20 +657,20 @@ dd {
 }
 .episode-row small {
   display: block;
-  color: #8da199;
+  color: #52645f;
   font-size: 9px;
   margin-top: 4px;
 }
 .episode-number {
   font-family: ui-monospace, monospace;
   font-size: 10px;
-  color: #98aaa4;
+  color: #52645f;
 }
 .episode-outcome {
   margin-left: auto;
   white-space: nowrap;
   font-size: 9px;
-  color: #6e8980;
+  color: #52645f;
 }
 .episode-outcome i {
   display: inline-block;
@@ -708,7 +708,7 @@ dd {
 }
 .status.success {
   background: #edf7ef;
-  color: #4b8563;
+  color: #2f6748;
 }
 .status.failure {
   background: #fff0e8;
@@ -723,7 +723,7 @@ dd {
 }
 .episode-facts span {
   font-size: 9px;
-  color: #8b9d96;
+  color: #52645f;
 }
 .episode-facts b {
   display: block;
@@ -741,11 +741,11 @@ dd {
   border: 1px dashed #dce6dd;
   border-radius: 6px;
   margin: 20px 0;
-  color: #82988a;
+  color: #52645f;
 }
 .media-empty > span {
   font-size: 26px;
-  color: #a3b7a7;
+  color: #52645f;
 }
 .media-empty strong {
   font-size: 10px;
@@ -766,7 +766,7 @@ dd {
   justify-content: space-between;
   margin: 12px 0;
   font-size: 10px;
-  color: #779085;
+  color: #52645f;
   gap: 10px;
 }
 .section-toolbar select {
@@ -780,7 +780,7 @@ dd {
   align-items: center;
   gap: 5px;
   font-size: 9px;
-  color: #80948a;
+  color: #52645f;
 }
 .legend i {
   height: 2px;
@@ -799,7 +799,7 @@ dd {
 }
 .trace text {
   font-size: 10px;
-  fill: #8da199;
+  fill: #52645f;
   font-family: "Inter", "Segoe UI", system-ui, sans-serif;
 }
 .label-form {
@@ -820,7 +820,7 @@ dd {
 .label-form legend {
   font-size: 10px;
   font-weight: 500;
-  color: #678276;
+  color: #52645f;
   margin-bottom: 8px;
 }
 .segmented {
@@ -837,7 +837,7 @@ dd {
   background: #fff;
   border-radius: 5px;
   font-size: 10px;
-  color: #809486;
+  color: #52645f;
   padding: 9px;
   cursor: pointer;
 }
@@ -858,7 +858,7 @@ dd {
   gap: 8px;
   font-size: 10px;
   font-weight: 500;
-  color: #65806f;
+  color: #52645f;
   margin: 15px 0;
 }
 .field select,
@@ -871,7 +871,7 @@ dd {
   resize: vertical;
 }
 .field textarea::placeholder {
-  color: #a0b2a4;
+  color: #52645f;
   font-size: 10px;
 }
 .check {
@@ -879,7 +879,7 @@ dd {
   align-items: center;
   gap: 7px;
   font-size: 10px;
-  color: #6b8675;
+  color: #52645f;
   margin: 16px 0;
 }
 .check input {
@@ -920,7 +920,7 @@ dd {
 }
 .empty-inline {
   font-size: 11px;
-  color: #899d90;
+  color: #52645f;
   line-height: 1.6;
   padding: 15px 0;
 }
@@ -929,7 +929,7 @@ dd {
   padding: 15px 0;
   border-top: 1px solid #dde7df;
   font-size: 10px;
-  color: #738b7b;
+  color: #52645f;
 }
 .provenance summary {
   cursor: pointer;
@@ -947,7 +947,7 @@ footer {
   padding-top: 18px;
   font-size: 8px;
   letter-spacing: 1.5px;
-  color: #879d8b;
+  color: #52645f;
   display: flex;
   justify-content: space-between;
   gap: 15px;
@@ -955,7 +955,7 @@ footer {
 footer span {
   letter-spacing: 0;
   font-size: 9px;
-  color: #9aada0;
+  color: #52645f;
 }
 .state {
   max-width: 700px;
@@ -1230,7 +1230,7 @@ footer span {
 }
 .run-overview > summary::before {
   content: "＋";
-  color: #4c8176;
+  color: #52645f;
   font-size: 16px;
   line-height: 1;
 }
@@ -1243,7 +1243,7 @@ footer span {
   font-weight: 700;
 }
 .overview-hint {
-  color: #778985;
+  color: #52645f;
   font-size: 12px;
 }
 .run-overview > :not(summary) {
@@ -1328,7 +1328,7 @@ footer span {
   padding: 8px 10px;
   border: 1px solid #dce5e1;
   border-radius: 6px;
-  color: #718581;
+  color: #52645f;
 }
 .episode-search > span {
   font-size: 18px;
@@ -1348,7 +1348,7 @@ footer span {
   font-size: 14px;
 }
 .episode-search input::placeholder {
-  color: #82928e;
+  color: #52645f;
 }
 .episode-list {
   max-height: min(62vh, 640px);
@@ -1363,7 +1363,7 @@ footer span {
   line-height: 1.35;
 }
 .episode-row small {
-  color: #71837e;
+  color: #52645f;
   font-size: 12px;
   line-height: 1.35;
 }
@@ -1415,7 +1415,7 @@ footer span {
   font-size: 13px;
 }
 .media-empty p {
-  color: #617570;
+  color: #52645f;
   font-size: 12px;
   line-height: 1.45;
 }
@@ -1469,7 +1469,7 @@ footer span {
 .form-empty {
   min-height: 150px;
   padding: 20px;
-  color: #6e817b;
+  color: #52645f;
 }
 @media (max-width: 1320px) {
   .sidebar {
@@ -1703,14 +1703,14 @@ footer span {
 }
 .media-meta {
   margin-top: 3px;
-  color: #738681;
+  color: #52645f;
   font-size: 12px;
 }
 .camera-picker {
   display: flex;
   align-items: center;
   gap: 8px;
-  color: #617a73;
+  color: #52645f;
   font-size: 12px;
 }
 .camera-picker select {
@@ -1728,7 +1728,7 @@ footer span {
 }
 .media-sync-note {
   margin-top: 7px;
-  color: #70827e;
+  color: #52645f;
   font-size: 11px;
   line-height: 1.4;
 }
@@ -1798,7 +1798,7 @@ footer span {
   font-size: 12px;
 }
 .event-list time {
-  color: #748a81;
+  color: #52645f;
   font-size: 11px;
 }
 .event-empty {
@@ -1810,7 +1810,7 @@ footer span {
   align-items: center;
   gap: 10px;
   margin: 7px 0 3px;
-  color: #657e77;
+  color: #52645f;
   font-size: 12px;
 }
 .trace-seek-control input {
@@ -1890,7 +1890,7 @@ footer span {
   border: 1px solid #e1e9e6;
   border-radius: 6px;
   background: #f8fbfa;
-  color: #5e7476;
+  color: #52645f;
   font-size: 11px;
 }
 .keyboard-help summary {
@@ -1963,7 +1963,7 @@ kbd {
 .human-context dt,
 .context-provenance dt {
   margin-bottom: 3px;
-  color: #6f8184;
+  color: #52645f;
   font-size: 10px;
   font-weight: 650;
   text-transform: uppercase;
@@ -2115,7 +2115,7 @@ kbd {
   vertical-align: top;
 }
 .comparison-table thead th {
-  color: #627779;
+  color: #52645f;
   font-size: 10px;
 }
 .comparison-table tbody th {
@@ -2173,7 +2173,7 @@ kbd {
   align-items: center;
   margin-bottom: 8px;
   font-size: 10px;
-  color: #6a7e80;
+  color: #52645f;
 }
 .representative-summary strong {
   color: #203d42;

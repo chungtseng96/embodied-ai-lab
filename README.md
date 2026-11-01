@@ -74,8 +74,8 @@ embodied-ai-lab/
 - Mock robot/policy architecture in place
 - Evaluation runner, metrics, and structured logging in place
 - React results application and persistent manual review labels available
-- Run-context sidecars, compatibility-aware run comparisons, and reviewer keyboard shortcuts available
-- Real-backend browser acceptance suite and GitHub Actions workflow configured; CI evidence is pending
+- Run-context sidecars and compatibility-aware comparisons are implemented; reviewer keyboard controls and browser acceptance are in PR #32
+- Browser acceptance runs in GitHub Actions; see [PR #32 checks](https://github.com/chungtseng96/embodied-ai-lab/pull/32/checks) for the latest result
 - SO-101 adapter implemented with offline tests; device verification pending
 
 ## Quick start: mock software loop

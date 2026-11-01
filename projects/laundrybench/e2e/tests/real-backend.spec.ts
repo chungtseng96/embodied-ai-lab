@@ -247,7 +247,7 @@ backendTest("keyboard-only navigation enters a run, reviews an episode, and adva
   await page.keyboard.press("Tab");
   await expect(page.getByRole("button", { name: "Save review", exact: true })).toBeFocused();
   await page.keyboard.press("Tab");
-  const saveNext = page.getByRole("button", { name: "Save review and go to next pending episode" });
+  const saveNext = page.getByRole("button", { name: "Save & next: save review and go to next pending episode" });
   await expect(saveNext).toBeFocused();
   await page.keyboard.press("Enter");
   const nextHeading = page.getByRole("heading", { name: "episode-002" });
@@ -270,7 +270,7 @@ backendTest("review workspace remains usable at a mobile viewport", async ({ pag
   await page.setViewportSize({ width: 390, height: 844 });
   await openRun(page, backend.url);
   await expect(page.getByLabel("Review notes")).toBeVisible();
-  const saveNext = page.getByRole("button", { name: "Save review and go to next pending episode" });
+  const saveNext = page.getByRole("button", { name: "Save & next: save review and go to next pending episode" });
   await expect(saveNext).toBeVisible();
   const dimensions = await page.evaluate(() => ({
     viewportWidth: document.documentElement.clientWidth,
@@ -284,14 +284,19 @@ backendTest("review workspace remains usable at a mobile viewport", async ({ pag
 });
 
 backendTest("the rendered review workspace has no axe WCAG A/AA violations", async ({ page, backend }) => {
-  await openRun(page, backend.url);
+  await openRun(page, backend.url, "exp-e2e-beta");
+  await page.locator("details.run-overview > summary").click();
+  await page.getByLabel("Baseline experiment").selectOption("exp-e2e-alpha");
+  await expect(page.getByRole("status").filter({ hasText: "Compatibility: mismatched" })).toBeVisible();
+  await page.getByRole("button", { name: "Acknowledge incompatible comparison and show descriptive delta" }).click();
+  await expect(page.getByRole("heading", { name: "Descriptive outcome differences" })).toBeVisible();
   const results = await new AxeBuilder({ page }).withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"]).analyze();
   expect(results.violations, JSON.stringify(results.violations, null, 2)).toEqual([]);
 });
 
 backendTest("video event seeking honors the recorded clock offset and missing media is explicit", async ({ page, backend }) => {
   await openRun(page, backend.url);
-  const video = page.getByLabel("Episode video");
+  const video = page.getByLabel("Episode video", { exact: true });
   await expect.poll(() => video.evaluate((element: HTMLVideoElement) => element.readyState)).toBeGreaterThanOrEqual(1);
   await page.getByRole("button", { name: "Seek to recorded event grasp at 0.50 seconds" }).click();
   await expect.poll(() => video.evaluate((element: HTMLVideoElement) => element.currentTime)).toBeCloseTo(0.5, 1);

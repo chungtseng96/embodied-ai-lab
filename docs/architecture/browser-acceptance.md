@@ -18,7 +18,8 @@ and restore behavior, declined unsaved navigation, concurrent-tab revision
 conflicts, incompatible-context acknowledgment behavior, keyboard save-and-next
 with focus movement, mobile viewport layout, video-to-trace clock offset and
 missing/corrupt-media states with review continuity, a delayed real-network
-response race, and axe WCAG A/AA checks on the review workspace. Playwright
+response race, and axe WCAG A/AA checks across the review and acknowledged
+comparison workspace. Playwright
 retains traces, screenshots, and video for failing CI tests.
 
 Run the suite from the repository root after installing the project and

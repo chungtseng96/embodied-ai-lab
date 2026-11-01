@@ -35,8 +35,11 @@ by task/protocol compatibility, JWA-32 adds keyboard review controls, and
 JWA-37 adds real-backend browser acceptance in CI. See the
 [design review follow-up](2026-10-31-laundrybench-design-review.md#results-application-follow-up-2026-11-01)
 and [experiment-context contract](../architecture/experiment-context.md).
-The current worktree contains these changes, but their verification status is
-tracked in the review follow-up rather than inferred from implementation alone.
+The JWA-30/31 backend merged in PR #31 with green backend CI. PR #32 carries the
+frontend and browser-acceptance integration. Local validation passed
+`make check` (185 Python tests), the frontend suite (38 tests), and the production
+build. The first PR #32 browser CI attempt passed 10 of 12 tests; contrast and
+video-selector failures were fixed, and the rerun is tracked on [PR #32 checks](https://github.com/chungtseng96/embodied-ai-lab/pull/32/checks).
 
 ## Global Constraints
 
