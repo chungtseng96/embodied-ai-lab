@@ -2,7 +2,7 @@ import { act, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, expect, it, vi } from "vitest";
 import App from "./App";
-import { Detail } from "./api";
+import { Detail, Episode } from "./api";
 const detail: Detail = {
   id: "exp-001-baseline",
   revision: 0,
@@ -33,7 +33,11 @@ const detail: Detail = {
     },
   ],
 };
-function api(putStatus = 200) {
+function api(
+  putStatus = 200,
+  runDetail: Detail = detail,
+  runList: Detail[] = [runDetail],
+) {
   return vi
     .spyOn(globalThis, "fetch")
     .mockImplementation(async (input, options) => {
@@ -44,12 +48,12 @@ function api(putStatus = 200) {
             putStatus === 409
               ? { error: "Review revision changed" }
               : {
-                  ...detail,
+                  ...runDetail,
                   revision: 1,
                   labelled_episodes: 1,
                   episodes: [
                     {
-                      ...detail.episodes[0],
+                      ...runDetail.episodes[0],
                       success: false,
                       failure_category: "missed_grasp",
                       annotation: {
@@ -65,8 +69,11 @@ function api(putStatus = 200) {
       if (url.endsWith("/trace"))
         return new Response(JSON.stringify({ steps: [] }));
       if (url === "/api/runs")
-        return new Response(JSON.stringify({ runs: [detail] }));
-      return new Response(JSON.stringify(detail));
+        return new Response(JSON.stringify({ runs: runList }));
+      const requestedRun = runList.find((candidate) =>
+        url.includes(candidate.id),
+      );
+      return new Response(JSON.stringify(requestedRun || runDetail));
     });
 }
 afterEach(() => vi.restoreAllMocks());
@@ -153,6 +160,87 @@ it("saves interventions using the backend failure contract", async () => {
     failure_category: "intervention",
   });
 });
+it("searches episode IDs, failure categories, and notes without losing edits, and resets on run change", async () => {
+  const categoryEpisode: Episode = {
+    ...detail.episodes[0],
+    episode_id: "exp-001-multi-001",
+    success: false,
+    failure_category: "missed_grasp",
+    original_outcome: {
+      success: false,
+      intervention: false,
+      failure_category: "missed_grasp",
+    },
+  };
+  const notesEpisode: Episode = {
+    ...detail.episodes[0],
+    episode_id: "exp-001-multi-002",
+    success: false,
+    original_outcome: {
+      success: false,
+      intervention: false,
+      failure_category: null,
+    },
+    annotation: { status: "labelled", notes: "towel snag" },
+  };
+  const multi: Detail = {
+    ...detail,
+    id: "exp-001-multi",
+    summary: { ...detail.summary, episodes: 3 },
+    episodes: [detail.episodes[0], categoryEpisode, notesEpisode],
+  };
+  const other: Detail = {
+    ...detail,
+    id: "exp-002-candidate",
+    episodes: [{ ...detail.episodes[0], episode_id: "exp-002-candidate-000" }],
+  };
+  vi.spyOn(window, "confirm").mockReturnValue(true);
+  api(200, multi, [multi, other]);
+  render(<App />);
+  await screen.findByRole("heading", { name: "Manual review" });
+  const search = screen.getByRole("textbox", { name: "Search episodes" });
+  await userEvent.type(search, "baseline-000");
+  expect(
+    screen.getByRole("button", { name: /exp-001-baseline-000/ }),
+  ).toBeInTheDocument();
+  await userEvent.clear(search);
+  await userEvent.type(search, "missed_grasp");
+  expect(
+    screen.getByRole("button", { name: /exp-001-multi-001/ }),
+  ).toBeInTheDocument();
+  await userEvent.clear(search);
+  await userEvent.type(search, "towel snag");
+  expect(
+    screen.getByRole("button", { name: /exp-001-multi-002/ }),
+  ).toBeInTheDocument();
+
+  await userEvent.clear(search);
+  await userEvent.type(
+    screen.getByLabelText("Review notes"),
+    "Keep this unsaved draft",
+  );
+  await userEvent.type(search, "no-match");
+  expect(
+    screen.getByText("No episodes match your search."),
+  ).toBeInTheDocument();
+  expect(
+    screen.getByText(
+      "Current episode remains open while the queue is filtered.",
+    ),
+  ).toBeInTheDocument();
+  expect(screen.getByLabelText("Review notes")).toHaveValue(
+    "Keep this unsaved draft",
+  );
+
+  await userEvent.click(
+    screen.getByRole("button", { name: /exp-002-candidate 1 episodes/ }),
+  );
+  await screen.findByRole("heading", { name: "exp-002-candidate-000" });
+  expect(screen.getByRole("textbox", { name: "Search episodes" })).toHaveValue(
+    "",
+  );
+});
+
 it("filters the episode workspace and clears excluded episode details", async () => {
   api();
   render(<App />);
