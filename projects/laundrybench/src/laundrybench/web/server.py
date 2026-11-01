@@ -12,7 +12,7 @@ from dataclasses import asdict
 from datetime import UTC, datetime
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
-from urllib.parse import quote, unquote, urlsplit
+from urllib.parse import parse_qs, quote, unquote, urlsplit
 
 import yaml
 
@@ -22,6 +22,11 @@ from laundrybench.evaluation.media import (
     parse_byte_range,
     read_episode_media,
     resolve_media,
+)
+from laundrybench.evaluation.metadata import (
+    MetadataError,
+    compare_run_context,
+    read_experiment_metadata,
 )
 from laundrybench.evaluation.outcomes import (
     LABEL_FILE,
@@ -164,6 +169,10 @@ class RunStore:
             summary = summarize_outcomes(records, labels["labels"], revision)
             quality = self.read(run, "quality.json")
             manifest = self.read(run, "manifest.yaml", {}) or {}
+            try:
+                experiment = read_experiment_metadata(run)
+            except MetadataError as error:
+                raise APIError(422, str(error)) from error
             if not isinstance(manifest, dict) or (
                 quality is not None and not isinstance(quality, dict)
             ):
@@ -175,6 +184,7 @@ class RunStore:
                 "id": run_id,
                 "summary": summary,
                 "manifest": manifest,
+                "experiment": experiment,
                 "quality": quality,
                 "episodes": episodes,
                 "revision": revision,
@@ -182,6 +192,30 @@ class RunStore:
                     e["annotation"]["status"] != "unlabelled" for e in episodes
                 ),
             }
+
+    def compare(
+        self, candidate_id: str, baseline_id: str, *, acknowledge_incompatible: bool = False
+    ) -> dict:
+        candidate = self.detail(candidate_id)
+        baseline = self.detail(baseline_id)
+        comparison = compare_run_context(
+            candidate["experiment"],
+            baseline["experiment"],
+            candidate_manifest=candidate["manifest"],
+            baseline_manifest=baseline["manifest"],
+            candidate_summary=candidate["summary"],
+            baseline_summary=baseline["summary"],
+            acknowledge_incompatible=acknowledge_incompatible,
+        )
+        return {
+            "candidate_id": candidate_id,
+            "baseline_id": baseline_id,
+            "candidate_context": candidate["experiment"],
+            "baseline_context": baseline["experiment"],
+            "candidate_label_revision": candidate["revision"],
+            "baseline_label_revision": baseline["revision"],
+            **comparison,
+        }
 
     def runs(self) -> list[dict]:
         runs = []
@@ -462,6 +496,17 @@ def create_server(
                     return self.send_json(200, {"runs": store.runs()})
                 if len(parts) == 3 and parts[:2] == ["api", "runs"]:
                     return self.send_json(200, store.detail(parts[2]))
+                if len(parts) == 5 and parts[:2] == ["api", "runs"] and parts[3] == "compare":
+                    query = parse_qs(urlsplit(self.path).query, keep_blank_values=True)
+                    ack_values = query.get("acknowledge_incompatible", [])
+                    if ack_values not in ([], ["1"]):
+                        raise APIError(400, "acknowledge_incompatible must be 1 when provided")
+                    return self.send_json(
+                        200,
+                        store.compare(
+                            parts[2], parts[4], acknowledge_incompatible=ack_values == ["1"]
+                        ),
+                    )
                 if (
                     len(parts) == 6
                     and parts[:2] == ["api", "runs"]
