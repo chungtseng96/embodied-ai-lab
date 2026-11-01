@@ -7,7 +7,7 @@ from collections.abc import Callable
 from laundrybench.evaluation.judge import SuccessJudge
 from laundrybench.policies.base import Policy
 from laundrybench.robot.base import Robot
-from laundrybench.types import EpisodeResult
+from laundrybench.types import EpisodeResult, FailureCategory
 
 
 def run_episode(
@@ -62,7 +62,7 @@ def run_episode(
             episode_id=str(uuid.uuid4()),
             success=success,
             duration_s=clock() - start,
-            failure_category=None if success else "timeout_or_task_failure",
+            failure_category=None if success else FailureCategory.TIMEOUT,
             metadata={"steps": steps, "policy": policy.name, "control_hz": control_hz},
         )
     finally:

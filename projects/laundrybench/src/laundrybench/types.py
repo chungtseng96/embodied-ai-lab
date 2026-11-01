@@ -1,7 +1,23 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from enum import Enum
 from typing import Any
+
+
+class FailureCategory(str, Enum):
+    """Why a failed episode failed."""
+
+    MISSED_GRASP = "missed_grasp"
+    GRASP_LOST = "grasp_lost"
+    WRONG_OBJECT = "wrong_object"
+    DROPPED = "dropped"
+    MISSED_BASKET = "missed_basket"
+    TIMEOUT = "timeout"
+    INTERVENTION = "intervention"
+    HARDWARE_FAULT = "hardware_fault"
+    FROZEN_CAMERA = "frozen_camera"
+    UNSPECIFIED = "unspecified"
 
 
 @dataclass(slots=True)
@@ -30,5 +46,5 @@ class EpisodeResult:
     success: bool
     duration_s: float
     intervention: bool = False
-    failure_category: str | None = None
+    failure_category: FailureCategory | None = None
     metadata: dict[str, Any] = field(default_factory=dict)

@@ -4,6 +4,7 @@ from laundrybench.evaluation.judge import MockSuccessJudge
 from laundrybench.evaluation.runner import run_episode
 from laundrybench.policies.mock import MockPolicy
 from laundrybench.robot.mock import MockRobot
+from laundrybench.types import FailureCategory
 
 
 def test_episode_times_out_at_timeout_s(fake_clock) -> None:
@@ -17,6 +18,7 @@ def test_episode_times_out_at_timeout_s(fake_clock) -> None:
         sleep=fake_clock.sleep,
     )
     assert result.success is False
+    assert result.failure_category is FailureCategory.TIMEOUT
     assert result.metadata["steps"] == 20
     assert result.duration_s == pytest.approx(2.0)
 
