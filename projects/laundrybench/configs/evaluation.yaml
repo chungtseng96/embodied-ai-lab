@@ -7,6 +7,6 @@ evaluation:
   require_manual_success_label: true
   metrics:
     - success_rate
-    - completion_time_seconds
-    - human_intervention_rate
+    - median_completion_time_s
+    - intervention_rate
     - failure_category_counts
