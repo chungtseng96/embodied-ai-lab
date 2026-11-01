@@ -95,3 +95,17 @@ def test_runner_stops_robot_after_normal_episode(fake_clock) -> None:
         sleep=fake_clock.sleep,
     )
     assert robot.stopped is True
+
+
+def test_runner_uses_given_episode_id(fake_clock) -> None:
+    result = run_episode(
+        MockRobot(),
+        MockPolicy(),
+        MockSuccessJudge(success_after_steps=1, success_probability=1.0),
+        control_hz=10,
+        timeout_s=1.0,
+        clock=fake_clock.now,
+        sleep=fake_clock.sleep,
+        episode_id="exp-001-baseline-001",
+    )
+    assert result.episode_id == "exp-001-baseline-001"
