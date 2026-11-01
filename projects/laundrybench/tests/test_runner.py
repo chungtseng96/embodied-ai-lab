@@ -6,42 +6,79 @@ from laundrybench.policies.mock import MockPolicy
 from laundrybench.robot.mock import MockRobot
 
 
-def test_run_episode_returns_result() -> None:
+def test_episode_times_out_at_timeout_s(fake_clock) -> None:
     result = run_episode(
-        MockRobot(seed=0),
+        MockRobot(),
         MockPolicy(),
-        MockSuccessJudge(seed=0, success_after_steps=1),
-        max_steps=5,
-    )
-    assert result.metadata["policy"] == "mock-policy"
-    assert result.duration_s >= 0.0
-
-
-def test_run_episode_can_fail() -> None:
-    result = run_episode(
-        MockRobot(seed=0),
-        MockPolicy(),
-        MockSuccessJudge(seed=0, success_after_steps=100),
-        max_steps=2,
+        MockSuccessJudge(success_after_steps=10_000),
+        control_hz=10,
+        timeout_s=2.0,
+        clock=fake_clock.now,
+        sleep=fake_clock.sleep,
     )
     assert result.success is False
-    assert result.failure_category == "timeout_or_task_failure"
+    assert result.metadata["steps"] == 20
+    assert result.duration_s == pytest.approx(2.0)
+
+
+def test_episode_paces_at_control_hz(fake_clock) -> None:
+    result = run_episode(
+        MockRobot(),
+        MockPolicy(),
+        MockSuccessJudge(success_after_steps=4, success_probability=1.0),
+        control_hz=5,
+        timeout_s=10.0,
+        clock=fake_clock.now,
+        sleep=fake_clock.sleep,
+    )
+    assert result.success is True
+    assert result.metadata["steps"] == 4
+    assert result.duration_s == pytest.approx(0.6)  # success returns before the 4th pacing sleep
+
+
+def test_episode_stops_when_clock_never_advances() -> None:
+    result = run_episode(
+        MockRobot(),
+        MockPolicy(),
+        MockSuccessJudge(success_after_steps=10_000),
+        control_hz=10,
+        timeout_s=1.0,
+        clock=lambda: 0.0,
+        sleep=lambda dt: None,
+    )
+    assert result.success is False
+    assert result.metadata["steps"] == 11
+
+
+@pytest.mark.parametrize(
+    "kwargs",
+    [
+        {"control_hz": 0, "timeout_s": 1},
+        {"control_hz": 10, "timeout_s": 0},
+        {"control_hz": float("inf"), "timeout_s": 1},
+        {"control_hz": 10, "timeout_s": float("nan")},
+    ],
+)
+def test_episode_rejects_non_positive_timing(kwargs) -> None:
+    with pytest.raises(ValueError):
+        run_episode(MockRobot(), MockPolicy(), MockSuccessJudge(), **kwargs)
 
 
 def test_robot_protocol_has_no_task_success() -> None:
     assert not hasattr(MockRobot(), "task_success")
 
 
-def test_runner_resets_policy_each_episode() -> None:
+def test_runner_resets_policy_each_episode(fake_clock) -> None:
     policy = MockPolicy()
     robot = MockRobot()
     judge = MockSuccessJudge(success_after_steps=1)
-    run_episode(robot, policy, judge, max_steps=3)
-    run_episode(robot, policy, judge, max_steps=3)
+    timing = {"control_hz": 10, "timeout_s": 1.0, "clock": fake_clock.now, "sleep": fake_clock.sleep}
+    run_episode(robot, policy, judge, **timing)
+    run_episode(robot, policy, judge, **timing)
     assert policy.reset_calls == 2
 
 
-def test_runner_stops_robot_when_policy_raises() -> None:
+def test_runner_stops_robot_when_policy_raises(fake_clock) -> None:
     class ExplodingPolicy:
         name = "boom"
 
@@ -52,11 +89,27 @@ def test_runner_stops_robot_when_policy_raises() -> None:
 
     robot = MockRobot()
     with pytest.raises(RuntimeError):
-        run_episode(robot, ExplodingPolicy(), MockSuccessJudge(), max_steps=3)
+        run_episode(
+            robot,
+            ExplodingPolicy(),
+            MockSuccessJudge(),
+            control_hz=10,
+            timeout_s=1.0,
+            clock=fake_clock.now,
+            sleep=fake_clock.sleep,
+        )
     assert robot.stopped is True
 
 
-def test_runner_stops_robot_after_normal_episode() -> None:
+def test_runner_stops_robot_after_normal_episode(fake_clock) -> None:
     robot = MockRobot()
-    run_episode(robot, MockPolicy(), MockSuccessJudge(success_after_steps=1), max_steps=3)
+    run_episode(
+        robot,
+        MockPolicy(),
+        MockSuccessJudge(success_after_steps=1),
+        control_hz=10,
+        timeout_s=1.0,
+        clock=fake_clock.now,
+        sleep=fake_clock.sleep,
+    )
     assert robot.stopped is True
