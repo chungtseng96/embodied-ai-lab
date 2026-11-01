@@ -38,5 +38,10 @@ node_modules/
 *.tsbuildinfo
 .preview-python/
 
+# Browser acceptance output
+projects/laundrybench/e2e/test-results/
+projects/laundrybench/e2e/playwright-report/
+projects/laundrybench/.e2e-artifacts/
+
 # Local agent continuation scratch
 /LOOP-STATE.md

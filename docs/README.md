@@ -5,6 +5,8 @@
 | Learn or review a robotics concept | `fundamentals/` (one concept per file, uses `templates/learning-note.md`) |
 | Look something up fast while debugging or interviewing | `cheatsheets/robotics.md`, `cheatsheets/lerobot.md` |
 | Understand how V1 fits together | `architecture/v1-architecture.md` |
+| Record run context or compare compatible experiments | [`architecture/experiment-context.md`](architecture/experiment-context.md) |
+| Review runs in the browser or inspect browser acceptance coverage | [`architecture/results-application.md`](architecture/results-application.md), [`architecture/browser-acceptance.md`](architecture/browser-acceptance.md) |
 | Know why a design choice was made, or change it | `architecture/decisions/` (ADRs, immutable; add a new one to amend) |
 | See what was learned when | `journal/` (dated entries) |
 | Start a new experiment or learning note | `templates/experiment.md`, `templates/learning-note.md` |

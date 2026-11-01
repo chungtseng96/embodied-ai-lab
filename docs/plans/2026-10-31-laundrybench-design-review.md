@@ -61,6 +61,27 @@ recorder, manifest, taxonomy, and config loading. Still to reconcile:
 
 Status: accepted 2026-10-31. D1 applied to both diagrams; D2 and D3 applied to Tasks 4 and 6; D4 to D7 are Tasks 10 to 13 (Phase B).
 
+## Results application follow-up (2026-11-01)
+
+The results application gained a separate run-context and review-workflow
+increment. These issues extend the operator surface and do not change the
+robot-control boundary. Implementation is present in the current worktree;
+status should be changed to verified only after the corresponding checks or CI
+run provide evidence.
+
+| Issue | Scope | Current state |
+| --- | --- | --- |
+| JWA-30 | Versioned `experiment.json` sidecar and metadata CLI; expose context with run details | Implemented in worktree; verification pending |
+| JWA-31 | Compare reviewed outcomes only when task/protocol identity and versions are compatible; explicit acknowledgment retains incompatibility reasons | Implemented in worktree; verification pending |
+| JWA-32 | Keyboard controls for outcome selection, episode navigation, and save-and-next | Implemented in worktree; verification pending |
+| JWA-37 | Real-backend Playwright browser acceptance suite and GitHub Actions workflow | Implemented in worktree; CI evidence pending |
+
+See [experiment context and run comparisons](../architecture/experiment-context.md),
+[browser acceptance](../architecture/browser-acceptance.md), and the
+[results application guide](../architecture/results-application.md) for the
+operator-facing contracts. The browser workflow is configured; this review
+does not assert that a remote CI run has completed.
+
 ## What is sound and should not change
 
 - LeRobot owns hardware, datasets, and policy mechanics; LaundryBench adapts at
