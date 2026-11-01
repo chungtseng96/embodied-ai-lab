@@ -1,8 +1,14 @@
-import { act, render, screen, waitFor } from "@testing-library/react";
+import {
+  act,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+} from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, expect, it, vi } from "vitest";
 import App from "./App";
-import { Detail, Episode } from "./api";
+import { Detail, Episode, EpisodeMedia, MediaStream } from "./api";
 const detail: Detail = {
   id: "exp-001-baseline",
   revision: 0,
@@ -52,6 +58,8 @@ function api(
   putStatus = 200,
   runDetail: Detail = detail,
   runList: Detail[] = [runDetail],
+  mediaStreams: MediaStream[] = [],
+  mediaEvents: EpisodeMedia["events"] = [],
 ) {
   return vi
     .spyOn(globalThis, "fetch")
@@ -154,6 +162,17 @@ function api(
       }
       if (url.endsWith("/trace"))
         return new Response(JSON.stringify({ steps: [] }));
+      if (url.endsWith("/media")) {
+        const episodeId = decodeURIComponent(url.split("/").at(-2) || "");
+        return new Response(
+          JSON.stringify({
+            schema_version: 1,
+            episode_id: episodeId,
+            streams: mediaStreams,
+            events: mediaEvents,
+          }),
+        );
+      }
       if (url === "/api/runs")
         return new Response(JSON.stringify({ runs: runList }));
       const requestedRun = runList.find((candidate) =>
@@ -316,6 +335,39 @@ it("saves interventions using the backend failure contract", async () => {
     failure_category: "intervention",
   });
 });
+it("keeps an unsaved label draft mounted while video playback updates the trace cursor", async () => {
+  const streams: MediaStream[] = [
+    {
+      camera: "front",
+      path: "media/front.mp4",
+      mime_type: "video/mp4",
+      duration_s: 1,
+      trace_start_s: 1000,
+      url: "/api/media/front",
+    },
+  ];
+  api(200, detail, [detail], streams, []);
+  render(<App />);
+  await screen.findByRole("heading", { name: "Manual review" });
+  const notes = screen.getByLabelText("Review notes");
+  await userEvent.type(notes, "Keep my review draft during playback");
+  const video = await screen.findByLabelText("Episode video");
+  let currentTime = 0;
+  Object.defineProperty(video, "currentTime", {
+    configurable: true,
+    get: () => currentTime,
+    set: (value: number) => {
+      currentTime = value;
+    },
+  });
+  currentTime = 0.25;
+  fireEvent.timeUpdate(video);
+  expect(screen.getByLabelText("Review notes")).toHaveValue(
+    "Keep my review draft during playback",
+  );
+  expect(screen.getByText("Unsaved changes")).toBeInTheDocument();
+});
+
 it("searches episode IDs, failure categories, and notes without losing edits, and resets on run change", async () => {
   const categoryEpisode: Episode = {
     ...detail.episodes[0],

@@ -77,6 +77,24 @@ export type Detail = Run & {
     flags?: { episode_id: string; check: string; detail: string }[];
   } | null;
 };
+export type MediaStream = {
+  camera: string;
+  path: string;
+  mime_type: string;
+  duration_s: number;
+  trace_start_s: number;
+  url: string;
+};
+export type MediaEvent = {
+  name: string;
+  timestamp_s: number;
+};
+export type EpisodeMedia = {
+  schema_version: 1;
+  episode_id: string;
+  streams: MediaStream[];
+  events: MediaEvent[];
+};
 export type Step = {
   step: number;
   timestamp_s: number;
