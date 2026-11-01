@@ -44,6 +44,15 @@ per-frame action annotations or live robot commands. Recorded video is registere
 through the [media contract](media-contract.md); missing or unsupported media
 remains explicit. Media registration does not capture new camera footage.
 
+When an episode has registered media, the evidence panel shows native video
+controls and a camera selector when more than one stream exists. Playback moves
+the trace cursor using the declared host-clock offset. Click the trace, use the
+keyboard-accessible trace slider, or select a recorded event to seek within the
+clip. Markers come only from the media sidecar; missing or invalid samples break
+trace lines rather than creating an implied continuous trajectory. Playback and
+seeking preserve unsaved review edits. Alignment software is tested with known
+timing fixtures; physical camera/robot synchronization is not yet established.
+
 ## Evidence and persistence
 
 The API reads `manifest.yaml`, `episodes.jsonl`, `traces/steps.jsonl` and optional

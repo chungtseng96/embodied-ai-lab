@@ -13,7 +13,7 @@ import {
   runPath,
   Step,
 } from "./api";
-import Trace from "./Trace";
+import MediaEvidence from "./MediaEvidence";
 
 function LabelForm({
   run,
@@ -331,28 +331,13 @@ function EpisodeReview({ run, episode }: { run: Detail; episode: Episode }) {
           Intervention
         </span>
       </div>
-      <div className="media-empty">
-        <span aria-hidden="true">▧</span>
-        <div>
-          <strong>Video unavailable</strong>
-          <p>
-            This run has no supported media attachment. Review the recorded
-            trajectory below.
-          </p>
-        </div>
-      </div>
-      <div className="trace-panel">
-        <h3>Joint trajectory</h3>
-        {error ? (
-          <p className="error" role="alert">
-            Trace unavailable: {error}
-          </p>
-        ) : trace === null ? (
-          <p className="muted">Loading recorded trace…</p>
-        ) : (
-          <Trace steps={trace} />
-        )}
-      </div>
+      <MediaEvidence
+        key={`${run.id}/${episode.episode_id}`}
+        runId={run.id}
+        episodeId={episode.episode_id}
+        steps={trace}
+        traceError={error}
+      />
     </section>
   );
 }
@@ -975,27 +960,27 @@ export default function App() {
                                 ? "Excluded"
                                 : "Pending review"}
                           </small>
-                        </span>
-                        <span className="episode-outcome">
-                          <i
-                            className={
-                              e.review_status !== "reviewed"
-                                ? "pending-dot"
-                                : e.success
-                                  ? "success-dot"
-                                  : "failure-dot"
-                            }
-                          />
-                          {e.review_status === "reviewed"
-                            ? e.success
-                              ? "Success"
-                              : "Failure"
-                            : e.review_status === "excluded"
-                              ? "Excluded"
-                              : e.original_outcome.success
-                                ? "Recorded success"
-                                : "Recorded failure"}{" "}
-                          · {e.duration_s.toFixed(1)}s
+                          <span className="episode-outcome">
+                            <i
+                              className={
+                                e.review_status !== "reviewed"
+                                  ? "pending-dot"
+                                  : e.success
+                                    ? "success-dot"
+                                    : "failure-dot"
+                              }
+                            />
+                            {e.review_status === "reviewed"
+                              ? e.success
+                                ? "Success"
+                                : "Failure"
+                              : e.review_status === "excluded"
+                                ? "Excluded"
+                                : e.original_outcome.success
+                                  ? "Recorded success"
+                                  : "Recorded failure"}{" "}
+                            · {e.duration_s.toFixed(1)}s
+                          </span>
                         </span>
                       </button>
                     ))}
