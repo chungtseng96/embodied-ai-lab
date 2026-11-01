@@ -178,3 +178,26 @@ def test_runner_stops_robot_when_policy_reset_raises(fake_clock) -> None:
             sleep=fake_clock.sleep,
         )
     assert robot.stop_calls == 1
+
+
+def test_runner_records_judge_failure_category_on_timeout(fake_clock) -> None:
+    class NeverSucceedsJudge:
+        failure_category = FailureCategory.DROPPED
+
+        def is_success(self, observation) -> bool:
+            return False
+
+        def on_timeout(self, observation) -> bool:
+            return False
+
+    result = run_episode(
+        MockRobot(),
+        MockPolicy(),
+        NeverSucceedsJudge(),
+        control_hz=10,
+        timeout_s=1.0,
+        clock=fake_clock.now,
+        sleep=fake_clock.sleep,
+    )
+    assert result.success is False
+    assert result.failure_category is FailureCategory.DROPPED
