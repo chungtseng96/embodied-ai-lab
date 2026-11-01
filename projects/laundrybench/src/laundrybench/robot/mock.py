@@ -28,7 +28,7 @@ class MockRobot:
         return Observation(
             timestamp_s=time.time(),
             joint_positions=list(self._joints),
-            image_ref="mock://camera/frame",
+            images={"front": None},
             metadata={"step": self._steps},
         )
 
