@@ -12,7 +12,7 @@ from urllib.error import HTTPError
 from urllib.request import Request, urlopen
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts"))
-from showcase_fixture_server import ReadOnlyHandler  # noqa: E402
+from showcase_fixture_server import ReadOnlyHandler
 
 
 class ReadOnlyFixtureRangeTests(unittest.TestCase):

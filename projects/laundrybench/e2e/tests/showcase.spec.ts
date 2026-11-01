@@ -120,20 +120,28 @@ test("read-only Showcase walkthrough works on desktop and mobile and records a d
     await expect(page.getByRole("region", { name: "Baseline experiment context" })).toContainText(manifest.baseline_id);
     await page.waitForTimeout(2_000);
 
-    const videoElement = page.getByLabel("Episode video", { exact: true });
-    await expect.poll(() => videoElement.evaluate((element: HTMLVideoElement) => element.readyState)).toBeGreaterThanOrEqual(1);
-    const traceSeek = page.getByLabel("Seek video from trace");
-    await expect(traceSeek).toBeVisible();
-    await traceSeek.focus();
-    await traceSeek.press("ArrowRight");
-    await expect.poll(() => videoElement.evaluate((element: HTMLVideoElement) => element.currentTime)).toBeGreaterThan(0);
-    await expect(page.getByTestId("trace-cursor")).toBeVisible();
-    await page.waitForTimeout(2_000);
-
     const desktopAxe = await new AxeBuilder({ page })
       .withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"])
       .analyze();
     expect(desktopAxe.violations, JSON.stringify(desktopAxe.violations, null, 2)).toEqual([]);
+
+    const videoElement = page.getByLabel("Episode video", { exact: true });
+    await expect.poll(() => videoElement.evaluate((element: HTMLVideoElement) => element.readyState)).toBeGreaterThanOrEqual(1);
+    const traceSeek = page.getByLabel("Seek video from trace");
+    await expect(traceSeek).toBeVisible();
+    const traceChart = page.getByRole("img", { name: "Recorded joint position and target over elapsed time" });
+    await expect(traceChart).toBeVisible();
+    const traceCursor = page.getByTestId("trace-cursor");
+    await expect(traceCursor).toHaveCount(1);
+    await expect(traceCursor).toHaveAttribute("stroke", "#c16646");
+    await expect(traceCursor).toHaveAttribute("stroke-width", "2");
+    const initialCursorX = Number(await traceCursor.getAttribute("x1"));
+    expect(Number.isFinite(initialCursorX)).toBe(true);
+    await traceSeek.focus();
+    await traceSeek.press("ArrowRight");
+    await expect.poll(() => videoElement.evaluate((element: HTMLVideoElement) => element.currentTime)).toBeGreaterThan(0);
+    await expect.poll(async () => Number(await traceCursor.getAttribute("x1"))).toBeGreaterThan(initialCursorX);
+    await page.waitForTimeout(2_000);
 
     const candidateBefore = await (await request.get(`${server.url}/api/runs/${manifest.candidate_id}`)).json();
     const writeResponse = await request.put(

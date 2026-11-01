@@ -32,8 +32,9 @@ class ReadOnlyHandler(SimpleHTTPRequestHandler):
         path = self.translate_path(self.path)
         if os.path.isdir(path):
             return super().send_head()
+        # The inherited GET/HEAD methods close this returned stream after use.
         try:
-            source = open(path, "rb")
+            source = open(path, "rb")  # noqa: SIM115
         except OSError:
             self.send_error(404, "File not found")
             return None

@@ -1414,6 +1414,7 @@ export default function App({
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [queuedEpisodes, episode?.episode_id, navigate]);
+  const MainContent = readOnly ? "div" : "main";
   return (
     <div className={`app ${readOnly ? "readonly-app" : ""}`}>
       <aside className="sidebar">
@@ -1502,7 +1503,7 @@ export default function App({
         </div>
         </>}
       </aside>
-      <main>
+      <MainContent className={readOnly ? "showcase-app-main" : undefined}>
         <div className="topbar">
           <span>
             Workspace <span className="slash">/</span> Experiments
@@ -1953,7 +1954,7 @@ export default function App({
             </div>
           )
         )}
-      </main>
+      </MainContent>
     </div>
   );
 }

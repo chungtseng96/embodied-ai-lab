@@ -103,9 +103,8 @@ export default function Showcase() {
         <a
           className="showcase-brand"
           href="#top"
-          aria-label="LaundryBench showcase home"
         >
-          <span className="brand-mark">
+          <span className="brand-mark" aria-hidden="true">
             L<span>↗</span>
           </span>
           <span>
@@ -159,7 +158,8 @@ export default function Showcase() {
           </div>
           <div
             className="showcase-visual"
-            aria-label="LaundryBench system illustration"
+            role="img"
+            aria-label="Illustration of an SO-101 arm sorting socks beside other laundry."
           >
             <div className="visual-window-bar">
               <span />
