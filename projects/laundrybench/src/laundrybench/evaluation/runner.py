@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import math
 import time
 import uuid
 from collections.abc import Callable
@@ -34,6 +35,10 @@ def run_episode(
     applies the action.
     """
 
+    if not math.isfinite(control_hz):
+        raise ValueError(f"control_hz must be finite, got {control_hz}")
+    if not math.isfinite(timeout_s):
+        raise ValueError(f"timeout_s must be finite, got {timeout_s}")
     if control_hz <= 0:
         raise ValueError(f"control_hz must be positive, got {control_hz}")
     if timeout_s <= 0:
@@ -42,6 +47,8 @@ def run_episode(
     if episode_id is None:
         episode_id = str(uuid.uuid4())
     period_s = 1.0 / control_hz
+    # A frozen or stalled clock must not hang an evaluation run, so cap steps as well as time.
+    max_iterations = math.ceil(timeout_s * control_hz) + 1
     robot.reset()
     policy.reset()
     start = clock()
@@ -50,7 +57,7 @@ def run_episode(
     try:
         observation = robot.observe()
 
-        while clock() - start < timeout_s:
+        while steps < max_iterations and clock() - start < timeout_s:
             action = policy.act(observation)
             if on_step is not None:
                 on_step(episode_id, steps, observation, action)
