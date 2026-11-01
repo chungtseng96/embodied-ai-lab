@@ -39,15 +39,15 @@ function LabelForm({
   const [saving, setSaving] = useState(false),
     [error, setError] = useState(""),
     [conflict, setConflict] = useState(false);
+  const isDirty =
+    outcome !== (episode.success ? "success" : "failure") ||
+    (outcome === "failure" &&
+      category !== (episode.failure_category || "unspecified")) ||
+    intervention !== episode.intervention ||
+    notes !== (episode.annotation.notes || "");
   useEffect(() => {
-    onDirty(
-      outcome !== (episode.success ? "success" : "failure") ||
-        (outcome === "failure" &&
-          category !== (episode.failure_category || "unspecified")) ||
-        intervention !== episode.intervention ||
-        notes !== (episode.annotation.notes || ""),
-    );
-  }, [outcome, category, intervention, notes, episode, onDirty]);
+    onDirty(isDirty);
+  }, [isDirty, onDirty]);
   useEffect(() => () => onDirty(false), [onDirty]);
   async function save(event: FormEvent) {
     event.preventDefault();
@@ -83,11 +83,14 @@ function LabelForm({
       <div className="section-heading">
         <h3>Manual review</h3>
         <span
-          className={`pill ${episode.annotation.status === "labelled" ? "teal" : ""}`}
+          className={`pill ${isDirty ? "amber" : episode.annotation.status === "labelled" ? "teal" : ""}`}
+          role="status"
         >
-          {episode.annotation.status === "labelled"
-            ? "Reviewed"
-            : "Needs review"}
+          {isDirty
+            ? "Unsaved changes"
+            : episode.annotation.status === "labelled"
+              ? "Reviewed"
+              : "Needs review"}
         </span>
       </div>
       <p className="muted small">
@@ -185,19 +188,7 @@ function LabelForm({
     </form>
   );
 }
-function EpisodeReview({
-  run,
-  episode,
-  onSaved,
-  onReload,
-  onDirty,
-}: {
-  run: Detail;
-  episode: Episode;
-  onSaved: (run: Detail) => void;
-  onReload: () => void;
-  onDirty: (dirty: boolean) => void;
-}) {
+function EpisodeReview({ run, episode }: { run: Detail; episode: Episode }) {
   const [trace, setTrace] = useState<Step[] | null>(null),
     [error, setError] = useState("");
   useEffect(() => {
@@ -230,14 +221,17 @@ function EpisodeReview({
       </div>
       <div className="episode-facts">
         <span>
+          <b>{episode.original_outcome.success ? "Success" : "Failure"}</b>
+          Original outcome
+        </span>
+        <span>
+          <b>{episode.success ? "Success" : "Failure"}</b>Effective outcome
+        </span>
+        <span>
           <b>{episode.duration_s.toFixed(2)}s</b>Duration
         </span>
         <span>
           <b>{episode.intervention ? "Yes" : "No"}</b>Intervention
-        </span>
-        <span>
-          <b>{episode.original_outcome.success ? "Success" : "Failure"}</b>
-          Original outcome
         </span>
       </div>
       <div className="media-empty">
@@ -262,14 +256,6 @@ function EpisodeReview({
           <Trace steps={trace} />
         )}
       </div>
-      <LabelForm
-        key={`${run.id}/${episode.episode_id}`}
-        run={run}
-        episode={episode}
-        onSaved={onSaved}
-        onReload={onReload}
-        onDirty={onDirty}
-      />
     </section>
   );
 }
@@ -305,6 +291,7 @@ export default function App() {
     [error, setError] = useState(""),
     [detailError, setDetailError] = useState("");
   const [search, setSearch] = useState(""),
+    [episodeSearch, setEpisodeSearch] = useState(""),
     [filter, setFilter] = useState("all"),
     [episodeId, setEpisodeId] = useState(""),
     [baselineId, setBaselineId] = useState(""),
@@ -340,6 +327,9 @@ export default function App() {
   useEffect(() => {
     void loadRuns();
   }, []);
+  useEffect(() => {
+    setEpisodeSearch("");
+  }, [selected]);
   useEffect(() => {
     if (!selected) return;
     let active = true;
@@ -398,6 +388,15 @@ export default function App() {
         (filter === "failure" && !e.success),
     ) || [];
   const episode = visible.find((e) => e.episode_id === episodeId) || visible[0];
+  const queuedEpisodes = visible.filter((e) => {
+    const query = episodeSearch.trim().toLowerCase();
+    return (
+      !query ||
+      e.episode_id.toLowerCase().includes(query) ||
+      (e.failure_category || "").toLowerCase().includes(query) ||
+      (e.annotation.notes || "").toLowerCase().includes(query)
+    );
+  });
   return (
     <div className="app">
       <aside className="sidebar">
@@ -556,203 +555,214 @@ export default function App() {
                     : "The manifest does not establish physical execution. Interpret outcomes in that context."}
                 </span>
               </div>
-              <div className="overview-heading">
-                <h2>Run overview</h2>
-                <label className="baseline-picker">
-                  Compare to
-                  <select
-                    aria-label="Baseline experiment"
-                    value={baselineId === selected ? "" : baselineId}
-                    onChange={(e) => setBaselineId(e.target.value)}
-                  >
-                    <option value="">No baseline</option>
-                    {runs
-                      .filter((r) => r.id !== selected)
-                      .map((r) => (
-                        <option key={r.id} value={r.id}>
-                          {r.id}
-                        </option>
-                      ))}
-                  </select>
-                </label>
-              </div>
-              <div className="kpis">
-                <div className="kpi">
-                  <span>Success rate</span>
-                  <strong>
-                    {run.summary.episodes
-                      ? percent(run.summary.success_rate)
-                      : "—"}
-                  </strong>
-                  <small>
-                    {run.summary.successes} of {run.summary.episodes} episodes
-                  </small>
-                  {run.summary.episodes > 0 && run.summary.success_rate_ci && (
-                    <small>
-                      95% CI{" "}
-                      {run.summary.success_rate_ci.map(percent).join(" – ")}
-                    </small>
-                  )}
-                  {baseline &&
-                    run.summary.episodes > 0 &&
-                    baseline.summary.episodes > 0 && (
-                      <em>
-                        {(
-                          (run.summary.success_rate -
-                            baseline.summary.success_rate) *
-                          100
-                        ).toFixed(1)}{" "}
-                        pp vs baseline
-                      </em>
-                    )}
+              <details className="run-overview">
+                <summary>
+                  <span className="overview-title">Run overview</span>
+                  <span className="overview-hint">
+                    Metrics, comparison, and run evidence
+                  </span>
+                </summary>
+                <div className="overview-heading">
+                  <span className="muted small">
+                    Outcome metrics and recorded configuration
+                  </span>
+                  <label className="baseline-picker">
+                    Compare to
+                    <select
+                      aria-label="Baseline experiment"
+                      value={baselineId === selected ? "" : baselineId}
+                      onChange={(e) => setBaselineId(e.target.value)}
+                    >
+                      <option value="">No baseline</option>
+                      {runs
+                        .filter((r) => r.id !== selected)
+                        .map((r) => (
+                          <option key={r.id} value={r.id}>
+                            {r.id}
+                          </option>
+                        ))}
+                    </select>
+                  </label>
                 </div>
-                <div className="kpi">
-                  <span>Median completion</span>
-                  <strong>
-                    {run.summary.successes
-                      ? `${run.summary.median_completion_time_s.toFixed(2)}`
-                      : "—"}
-                    {run.summary.successes > 0 && <i>s</i>}
-                  </strong>
-                  <small>Successful episodes only</small>
-                </div>
-                <div className="kpi">
-                  <span>Intervention rate</span>
-                  <strong>
-                    {run.summary.episodes
-                      ? percent(run.summary.intervention_rate)
-                      : "—"}
-                  </strong>
-                  <small>Human-assisted episodes</small>
-                </div>
-                <div className="kpi">
-                  <span>Review coverage</span>
-                  <strong>
-                    {run.labelled_episodes}
-                    <i>/ {run.summary.episodes}</i>
-                  </strong>
-                  <small>Manual labels saved</small>
-                  <div className="coverage">
-                    <span
-                      style={{
-                        width: `${run.summary.episodes ? (100 * run.labelled_episodes) / run.summary.episodes : 0}%`,
-                      }}
-                    />
-                  </div>
-                </div>
-              </div>
-              {baseline && (
-                <div className="comparison">
-                  <div>
-                    <div className="eyebrow">BASELINE COMPARISON</div>
-                    <h3>{baseline.id}</h3>
-                    <span className="pill amber">{provenance(baseline)}</span>
-                  </div>
-                  <dl>
-                    <div>
-                      <dt>Success rate</dt>
-                      <dd>
-                        {baseline.summary.episodes
-                          ? percent(baseline.summary.success_rate)
-                          : "—"}
-                      </dd>
-                    </div>
-                    <div>
-                      <dt>Completion</dt>
-                      <dd>
-                        {baseline.summary.successes
-                          ? `${baseline.summary.median_completion_time_s.toFixed(2)}s`
-                          : "—"}
-                      </dd>
-                    </div>
-                    <div>
-                      <dt>Interventions</dt>
-                      <dd>
-                        {baseline.summary.episodes
-                          ? percent(baseline.summary.intervention_rate)
-                          : "—"}
-                      </dd>
-                    </div>
-                  </dl>
-                  <p className="muted small">
-                    Descriptive comparison only. Confirm the same task and
-                    protocol before interpreting differences.
-                  </p>
-                </div>
-              )}
-              <div className="insights">
-                <section className="panel failures">
-                  <div className="section-heading">
-                    <h3>Failure distribution</h3>
-                    <span className="muted small">Episode counts</span>
-                  </div>
-                  {Object.keys(run.summary.failure_category_counts).length ? (
-                    Object.entries(run.summary.failure_category_counts).map(
-                      ([category, count]) => (
-                        <div className="failure-row" key={category}>
-                          <span>{category.replaceAll("_", " ")}</span>
-                          <div>
-                            <i
-                              style={{
-                                width: `${run.summary.episodes ? (100 * count) / run.summary.episodes : 0}%`,
-                              }}
-                            />
-                          </div>
-                          <b>{count}</b>
-                        </div>
-                      ),
-                    )
-                  ) : (
-                    <p className="empty-inline">
+                <div className="kpis">
+                  <div className="kpi">
+                    <span>Success rate</span>
+                    <strong>
                       {run.summary.episodes
-                        ? "No failed episodes recorded."
-                        : "No episodes recorded."}
-                    </p>
-                  )}
-                </section>
-                <section className="panel evidence">
-                  <div className="section-heading">
-                    <h3>Recorded evidence</h3>
-                    <span className="pill">
-                      {run.quality
-                        ? `${run.quality.flagged ?? 0} recorded flags`
-                        : "Quality unavailable"}
-                    </span>
+                        ? percent(run.summary.success_rate)
+                        : "—"}
+                    </strong>
+                    <small>
+                      {run.summary.successes} of {run.summary.episodes} episodes
+                    </small>
+                    {run.summary.episodes > 0 &&
+                      run.summary.success_rate_ci && (
+                        <small>
+                          95% CI{" "}
+                          {run.summary.success_rate_ci.map(percent).join(" – ")}
+                        </small>
+                      )}
+                    {baseline &&
+                      run.summary.episodes > 0 &&
+                      baseline.summary.episodes > 0 && (
+                        <em>
+                          {(
+                            (run.summary.success_rate -
+                              baseline.summary.success_rate) *
+                            100
+                          ).toFixed(1)}{" "}
+                          pp vs baseline
+                        </em>
+                      )}
                   </div>
-                  <dl>
-                    <div>
-                      <dt>Policy</dt>
-                      <dd>
-                        {String(run.manifest.policy_name || "Not recorded")}
-                      </dd>
+                  <div className="kpi">
+                    <span>Median completion</span>
+                    <strong>
+                      {run.summary.successes
+                        ? `${run.summary.median_completion_time_s.toFixed(2)}`
+                        : "—"}
+                      {run.summary.successes > 0 && <i>s</i>}
+                    </strong>
+                    <small>Successful episodes only</small>
+                  </div>
+                  <div className="kpi">
+                    <span>Intervention rate</span>
+                    <strong>
+                      {run.summary.episodes
+                        ? percent(run.summary.intervention_rate)
+                        : "—"}
+                    </strong>
+                    <small>Human-assisted episodes</small>
+                  </div>
+                  <div className="kpi">
+                    <span>Review coverage</span>
+                    <strong>
+                      {run.labelled_episodes}
+                      <i>/ {run.summary.episodes}</i>
+                    </strong>
+                    <small>Manual labels saved</small>
+                    <div className="coverage">
+                      <span
+                        style={{
+                          width: `${run.summary.episodes ? (100 * run.labelled_episodes) / run.summary.episodes : 0}%`,
+                        }}
+                      />
                     </div>
+                  </div>
+                </div>
+                {baseline && (
+                  <div className="comparison">
                     <div>
-                      <dt>Robot</dt>
-                      <dd>
-                        {String(
-                          run.manifest.robot_implementation || "Not recorded",
-                        )}
-                      </dd>
+                      <div className="eyebrow">BASELINE COMPARISON</div>
+                      <h3>{baseline.id}</h3>
+                      <span className="pill amber">{provenance(baseline)}</span>
                     </div>
-                    <div>
-                      <dt>Seed</dt>
-                      <dd>{String(run.manifest.seed ?? "Not recorded")}</dd>
+                    <dl>
+                      <div>
+                        <dt>Success rate</dt>
+                        <dd>
+                          {baseline.summary.episodes
+                            ? percent(baseline.summary.success_rate)
+                            : "—"}
+                        </dd>
+                      </div>
+                      <div>
+                        <dt>Completion</dt>
+                        <dd>
+                          {baseline.summary.successes
+                            ? `${baseline.summary.median_completion_time_s.toFixed(2)}s`
+                            : "—"}
+                        </dd>
+                      </div>
+                      <div>
+                        <dt>Interventions</dt>
+                        <dd>
+                          {baseline.summary.episodes
+                            ? percent(baseline.summary.intervention_rate)
+                            : "—"}
+                        </dd>
+                      </div>
+                    </dl>
+                    <p className="muted small">
+                      Descriptive comparison only. Confirm the same task and
+                      protocol before interpreting differences.
+                    </p>
+                  </div>
+                )}
+                <div className="insights">
+                  <section className="panel failures">
+                    <div className="section-heading">
+                      <h3>Failure distribution</h3>
+                      <span className="muted small">Episode counts</span>
                     </div>
-                    <div>
-                      <dt>Revision</dt>
-                      <dd className="mono">
-                        {String(
-                          run.manifest.git_revision || "Not recorded",
-                        ).slice(0, 12)}
-                      </dd>
+                    {Object.keys(run.summary.failure_category_counts).length ? (
+                      Object.entries(run.summary.failure_category_counts).map(
+                        ([category, count]) => (
+                          <div className="failure-row" key={category}>
+                            <span>{category.replaceAll("_", " ")}</span>
+                            <div>
+                              <i
+                                style={{
+                                  width: `${run.summary.episodes ? (100 * count) / run.summary.episodes : 0}%`,
+                                }}
+                              />
+                            </div>
+                            <b>{count}</b>
+                          </div>
+                        ),
+                      )
+                    ) : (
+                      <p className="empty-inline">
+                        {run.summary.episodes
+                          ? "No failed episodes recorded."
+                          : "No episodes recorded."}
+                      </p>
+                    )}
+                  </section>
+                  <section className="panel evidence">
+                    <div className="section-heading">
+                      <h3>Recorded evidence</h3>
+                      <span className="pill">
+                        {run.quality
+                          ? `${run.quality.flagged ?? 0} recorded flags`
+                          : "Quality unavailable"}
+                      </span>
                     </div>
-                  </dl>
-                  <p className="muted small quality-note">
-                    Quality flags describe the original recorded evidence.
-                    Manual labels update outcomes, not these checks.
-                  </p>
-                </section>
-              </div>
+                    <dl>
+                      <div>
+                        <dt>Policy</dt>
+                        <dd>
+                          {String(run.manifest.policy_name || "Not recorded")}
+                        </dd>
+                      </div>
+                      <div>
+                        <dt>Robot</dt>
+                        <dd>
+                          {String(
+                            run.manifest.robot_implementation || "Not recorded",
+                          )}
+                        </dd>
+                      </div>
+                      <div>
+                        <dt>Seed</dt>
+                        <dd>{String(run.manifest.seed ?? "Not recorded")}</dd>
+                      </div>
+                      <div>
+                        <dt>Revision</dt>
+                        <dd className="mono">
+                          {String(
+                            run.manifest.git_revision || "Not recorded",
+                          ).slice(0, 12)}
+                        </dd>
+                      </div>
+                    </dl>
+                    <p className="muted small quality-note">
+                      Quality flags describe the original recorded evidence.
+                      Manual labels update outcomes, not these checks.
+                    </p>
+                  </section>
+                </div>
+              </details>
               <div className="episodes-heading">
                 <div>
                   <h2>Episode workspace</h2>
@@ -784,15 +794,45 @@ export default function App() {
                 </div>
               </div>
               <div className="review-layout">
-                <section className="episode-table panel">
+                <section
+                  className="episode-table panel"
+                  aria-label="Episode queue"
+                >
                   <div className="table-caption">
-                    {visible.length} episodes <span>OUTCOME / DURATION</span>
+                    <strong>Episode queue</strong>
+                    <span>
+                      {queuedEpisodes.length} / {visible.length}
+                    </span>
                   </div>
+                  <label className="episode-search">
+                    <span aria-hidden="true">⌕</span>
+                    <input
+                      aria-label="Search episodes"
+                      placeholder="Find an episode…"
+                      value={episodeSearch}
+                      onChange={(e) => setEpisodeSearch(e.target.value)}
+                    />
+                  </label>
+                  {episode &&
+                    episodeSearch.trim() &&
+                    !queuedEpisodes.some(
+                      (queued) => queued.episode_id === episode.episode_id,
+                    ) && (
+                      <p className="queue-search-note" role="status">
+                        Current episode remains open while the queue is
+                        filtered.
+                      </p>
+                    )}
                   <div className="episode-list">
-                    {visible.map((e, index) => (
+                    {queuedEpisodes.map((e, index) => (
                       <button
                         className={`episode-row ${episode?.episode_id === e.episode_id ? "selected" : ""}`}
                         key={e.episode_id}
+                        aria-current={
+                          episode?.episode_id === e.episode_id
+                            ? "true"
+                            : undefined
+                        }
                         onClick={() => {
                           if (episode?.episode_id !== e.episode_id)
                             navigate(() => {
@@ -804,7 +844,7 @@ export default function App() {
                         <span className="episode-number">
                           {String(index + 1).padStart(2, "0")}
                         </span>
-                        <span>
+                        <span className="episode-row-copy">
                           <strong>{e.episode_id}</strong>
                           <small>
                             {e.annotation.status === "labelled"
@@ -819,19 +859,30 @@ export default function App() {
                               e.success ? "success-dot" : "failure-dot"
                             }
                           />
+                          {e.success ? "Success" : "Failure"} ·{" "}
                           {e.duration_s.toFixed(1)}s
                         </span>
                       </button>
                     ))}
-                    {!visible.length && (
+                    {!queuedEpisodes.length && (
                       <p className="empty-inline">
-                        No episodes match this filter.
+                        {visible.length
+                          ? "No episodes match your search."
+                          : "No episodes match this filter."}
                       </p>
                     )}
                   </div>
                 </section>
                 {episode ? (
-                  <EpisodeReview
+                  <EpisodeReview run={run} episode={episode} />
+                ) : (
+                  <div className="panel empty-inline evidence-empty">
+                    Select an episode to inspect its evidence.
+                  </div>
+                )}
+                {episode ? (
+                  <LabelForm
+                    key={`${run.id}/${episode.episode_id}`}
                     run={run}
                     episode={episode}
                     onSaved={saved}
@@ -839,8 +890,8 @@ export default function App() {
                     onDirty={updateDirty}
                   />
                 ) : (
-                  <div className="panel empty-inline">
-                    Select an episode to inspect its evidence.
+                  <div className="panel empty-inline form-empty">
+                    Select an episode to add a manual review.
                   </div>
                 )}
               </div>

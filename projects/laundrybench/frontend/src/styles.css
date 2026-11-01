@@ -1208,3 +1208,434 @@ footer span {
   margin-top: 16px;
   font-size: 9px;
 }
+
+/* Focused episode review workspace */
+.run-overview {
+  margin: 16px 0 22px;
+  border: 1px solid #dfe7e3;
+  border-radius: 8px;
+  background: #fff;
+}
+.run-overview > summary {
+  min-height: 48px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 11px 16px;
+  cursor: pointer;
+  list-style: none;
+}
+.run-overview > summary::-webkit-details-marker {
+  display: none;
+}
+.run-overview > summary::before {
+  content: "＋";
+  color: #4c8176;
+  font-size: 16px;
+  line-height: 1;
+}
+.run-overview[open] > summary::before {
+  content: "−";
+}
+.overview-title {
+  color: #27443f;
+  font-size: 15px;
+  font-weight: 700;
+}
+.overview-hint {
+  color: #778985;
+  font-size: 12px;
+}
+.run-overview > :not(summary) {
+  margin-left: 16px;
+  margin-right: 16px;
+}
+.run-overview > .overview-heading {
+  margin-top: 4px;
+}
+.run-overview > .insights {
+  margin-bottom: 16px;
+}
+.run-overview .kpis {
+  grid-template-columns: repeat(4, minmax(120px, 1fr));
+}
+.run-overview .kpi {
+  min-height: 112px;
+  padding: 14px 16px;
+}
+.run-overview .kpi > span,
+.run-overview .kpi small,
+.run-overview .comparison,
+.run-overview .evidence dd,
+.run-overview .failure-row {
+  font-size: 12px;
+}
+.run-overview .kpi strong {
+  font-size: 25px;
+}
+.run-overview .panel {
+  padding: 16px;
+}
+.episodes-heading {
+  margin: 18px 0 12px;
+  align-items: center;
+}
+.episodes-heading h2 {
+  font-size: 20px;
+}
+.episodes-heading p {
+  font-size: 13px;
+  margin-top: 4px;
+}
+.filters button {
+  font-size: 14px;
+  padding: 7px 10px;
+}
+.review-layout {
+  display: grid;
+  grid-template-columns: minmax(220px, 0.78fr) minmax(350px, 1.25fr) minmax(
+      285px,
+      0.97fr
+    );
+  gap: 14px;
+  align-items: start;
+}
+.episode-table,
+.review-panel,
+.label-form {
+  min-width: 0;
+  background: #fff;
+  border: 1px solid #dfe7e3;
+  border-radius: 8px;
+}
+.episode-table {
+  position: sticky;
+  top: 14px;
+}
+.table-caption {
+  align-items: baseline;
+  padding: 14px 14px 10px;
+  font-size: 14px;
+}
+.table-caption span {
+  font-size: 11px;
+}
+.episode-search {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0 12px 8px;
+  padding: 8px 10px;
+  border: 1px solid #dce5e1;
+  border-radius: 6px;
+  color: #718581;
+}
+.episode-search > span {
+  font-size: 18px;
+  line-height: 1;
+}
+.episode-search:focus-within {
+  border-color: #268576;
+  box-shadow: 0 0 0 3px #3eaaad44;
+}
+.episode-search input {
+  width: 100%;
+  min-width: 0;
+  border: 0;
+  outline: 0;
+  background: none;
+  color: #25413d;
+  font-size: 14px;
+}
+.episode-search input::placeholder {
+  color: #82928e;
+}
+.episode-list {
+  max-height: min(62vh, 640px);
+}
+.episode-row {
+  gap: 8px;
+  padding: 12px 10px;
+}
+.episode-row strong {
+  color: #29443f;
+  font-size: 12px;
+  line-height: 1.35;
+}
+.episode-row small {
+  color: #71837e;
+  font-size: 12px;
+  line-height: 1.35;
+}
+.episode-number {
+  font-size: 12px;
+}
+.episode-outcome {
+  font-size: 12px;
+}
+.queue-search-note {
+  margin: 4px 12px 8px;
+  color: #537269;
+  font-size: 12px;
+  line-height: 1.4;
+}
+.episode-row-copy {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.review-panel {
+  padding: 16px;
+}
+.review-title .eyebrow {
+  font-size: 10px;
+}
+.review-title h2 {
+  margin-top: 5px;
+  font-size: 16px;
+  line-height: 1.35;
+}
+.episode-facts {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px 14px;
+  padding: 13px 0;
+}
+.episode-facts span {
+  font-size: 11px;
+}
+.episode-facts b {
+  font-size: 13px;
+  margin-bottom: 2px;
+}
+.media-empty {
+  padding: 14px;
+  margin: 14px 0;
+}
+.media-empty strong {
+  font-size: 13px;
+}
+.media-empty p {
+  color: #617570;
+  font-size: 12px;
+  line-height: 1.45;
+}
+.trace-panel h3 {
+  font-size: 14px;
+}
+.label-form {
+  padding: 16px;
+}
+.label-form h3 {
+  font-size: 16px;
+}
+.label-form .section-heading {
+  margin-bottom: 8px;
+}
+.label-form > .muted {
+  font-size: 12px;
+  line-height: 1.45;
+}
+.label-form fieldset {
+  margin-top: 12px;
+}
+.label-form legend,
+.field,
+.check {
+  font-size: 13px;
+}
+.segmented label {
+  min-height: 40px;
+  font-size: 14px;
+}
+.field {
+  gap: 6px;
+  margin: 12px 0;
+}
+.field select,
+.field textarea {
+  font-size: 14px;
+}
+.check {
+  margin: 12px 0;
+}
+.check input {
+  width: 15px;
+  height: 15px;
+}
+.primary {
+  font-size: 13px;
+}
+.evidence-empty,
+.form-empty {
+  min-height: 150px;
+  padding: 20px;
+  color: #6e817b;
+}
+@media (max-width: 1320px) {
+  .sidebar {
+    width: 220px;
+  }
+  main {
+    margin-left: 220px;
+    width: calc(100% - 220px);
+  }
+  .content {
+    padding: 26px 22px 20px;
+  }
+  .review-layout {
+    grid-template-columns: minmax(180px, 0.7fr) minmax(280px, 1.3fr);
+  }
+  .label-form {
+    grid-column: 2;
+  }
+  .episode-table {
+    grid-row: span 2;
+  }
+}
+@media (max-width: 760px) {
+  .app {
+    display: block;
+  }
+  main {
+    margin-left: 0;
+    width: 100%;
+    min-width: 0;
+  }
+  .sidebar {
+    position: static;
+    inset: auto;
+    width: 100%;
+    min-width: 0;
+    min-height: 0;
+    height: auto;
+    padding: 12px 14px;
+  }
+  .brand {
+    padding: 0 2px 12px;
+  }
+  .brand-mark {
+    width: 30px;
+    height: 30px;
+    font-size: 20px;
+  }
+  .nav-label,
+  .nav-active,
+  .sidebar-heading,
+  .sidebar-footer {
+    display: none;
+  }
+  .search {
+    margin: 0;
+  }
+  .sidebar nav {
+    display: flex;
+    gap: 6px;
+    max-height: 130px;
+    overflow: auto;
+    margin-top: 8px;
+  }
+  .run-link {
+    flex: 0 0 190px;
+    padding: 8px;
+    margin: 0;
+  }
+  .topbar {
+    height: 44px;
+    padding: 0 16px;
+  }
+  .content {
+    padding: 20px 14px 24px;
+  }
+  .page-header h1 {
+    font-size: 25px;
+  }
+  .evidence-banner {
+    display: block;
+    margin: 16px 0;
+    padding: 11px 13px;
+    font-size: 12px;
+  }
+  .evidence-banner strong {
+    display: block;
+    margin-bottom: 4px;
+  }
+  .run-overview > summary {
+    align-items: flex-start;
+    flex-wrap: wrap;
+    gap: 5px 10px;
+    padding: 11px 12px;
+  }
+  .overview-title {
+    font-size: 14px;
+  }
+  .overview-hint {
+    font-size: 11px;
+  }
+  .run-overview > :not(summary) {
+    margin-left: 10px;
+    margin-right: 10px;
+  }
+  .run-overview .kpis {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .run-overview .kpi {
+    min-height: 100px;
+    padding: 12px;
+    border-bottom: 1px solid #e4eae7;
+  }
+  .run-overview .kpi:nth-child(2) {
+    border-right: 0;
+  }
+  .run-overview .kpi strong {
+    font-size: 22px;
+  }
+  .run-overview .insights {
+    grid-template-columns: 1fr;
+  }
+  .episodes-heading {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+  .filters {
+    width: 100%;
+    overflow-x: auto;
+  }
+  .filters button {
+    flex: 1 0 auto;
+  }
+  .review-layout {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 10px;
+  }
+  .episode-table,
+  .label-form {
+    grid-column: auto;
+    grid-row: auto;
+  }
+  .episode-table {
+    position: static;
+  }
+  .episode-list {
+    max-height: 220px;
+  }
+  .episode-row {
+    padding: 10px;
+  }
+  .episode-outcome {
+    font-size: 10px;
+  }
+  .review-panel,
+  .label-form {
+    padding: 14px;
+  }
+  .comparison {
+    grid-template-columns: 1fr;
+    padding: 14px;
+  }
+  .comparison p {
+    grid-column: auto;
+  }
+  footer {
+    padding-top: 18px;
+  }
+}
