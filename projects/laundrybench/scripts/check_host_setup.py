@@ -18,7 +18,9 @@ def _executable(command: str) -> str | None:
         str(Path(sys.executable).with_name(command)),
         str(Path.home() / ".local" / "bin" / command),
     ]
-    return next((candidate for candidate in candidates if candidate and Path(candidate).exists()), None)
+    return next(
+        (candidate for candidate in candidates if candidate and Path(candidate).exists()), None
+    )
 
 
 def _run(command: list[str], timeout: int = 8) -> dict[str, object]:

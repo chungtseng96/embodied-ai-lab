@@ -9,7 +9,9 @@ from laundrybench.evaluation.quality import (
 CONTROL_HZ = 10.0
 
 
-def make_steps(targets: list[list[float]], *, dt: float = 0.1, episode_id: str = "ep") -> list[dict]:
+def make_steps(
+    targets: list[list[float]], *, dt: float = 0.1, episode_id: str = "ep"
+) -> list[dict]:
     return [
         {"episode_id": episode_id, "step": i, "timestamp_s": i * dt, "joint_targets": target}
         for i, target in enumerate(targets)

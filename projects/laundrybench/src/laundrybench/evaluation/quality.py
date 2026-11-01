@@ -67,7 +67,10 @@ def check_episode_quality(
 
     run_start = 0
     for index in range(1, len(steps) + 1):
-        if index < len(steps) and steps[index]["joint_targets"] == steps[run_start]["joint_targets"]:
+        if (
+            index < len(steps)
+            and steps[index]["joint_targets"] == steps[run_start]["joint_targets"]
+        ):
             continue
         if index - run_start >= FROZEN_ACTION_STEPS:
             flag(
@@ -92,7 +95,10 @@ def check_episode_quality(
         and not result["success"]
         and result.get("failure_category") in (None, "unspecified")
     ):
-        flag("missing_label", f"failed episode has failure_category {result.get('failure_category')!r}")
+        flag(
+            "missing_label",
+            f"failed episode has failure_category {result.get('failure_category')!r}",
+        )
 
     return flags
 

@@ -74,7 +74,12 @@ def test_runner_resets_policy_each_episode(fake_clock) -> None:
     policy = MockPolicy()
     robot = MockRobot()
     judge = MockSuccessJudge(success_after_steps=1)
-    timing = {"control_hz": 10, "timeout_s": 1.0, "clock": fake_clock.now, "sleep": fake_clock.sleep}
+    timing = {
+        "control_hz": 10,
+        "timeout_s": 1.0,
+        "clock": fake_clock.now,
+        "sleep": fake_clock.sleep,
+    }
     run_episode(robot, policy, judge, **timing)
     run_episode(robot, policy, judge, **timing)
     assert policy.reset_calls == 2
