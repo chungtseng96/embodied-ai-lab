@@ -87,29 +87,80 @@ _PAGE = Template(
 <html lang="en">
 <head>
 <meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
 <title>LaundryBench report: $experiment_id</title>
 <style>
-body { font-family: system-ui, sans-serif; margin: 2rem; color: #222; }
-table { border-collapse: collapse; margin-bottom: 1.5rem; }
-th, td { border: 1px solid #ccc; padding: 0.3rem 0.6rem; text-align: left; vertical-align: top; }
-th { background: #f3f3f3; }
-.bar { display: inline-block; height: 0.8rem; background: #4a7bd0; margin-right: 0.4rem; }
+:root { color-scheme: light; font-family: system-ui, sans-serif; color: #172c35; }
+* { box-sizing: border-box; }
+body { margin: 0; background: #f3f6f5; line-height: 1.5; }
+main { max-width: 1120px; margin: auto; padding: 48px 24px; }
+.eyebrow { color: #47676b; font-size: .78rem; font-weight: 750; letter-spacing: .13em; }
+h1 { font-size: clamp(2rem, 5vw, 3.2rem); line-height: 1.15; margin: 14px 0; }
+h2 { margin: 0 0 18px; font-size: 1.15rem; }
+.subtitle, .note { color: #526971; }
+.subtitle { max-width: 680px; margin-bottom: 28px; }
+.run-id { overflow-wrap: anywhere; }
+.badge { display: inline-block; border-radius: 99px; padding: 5px 12px;
+  font-size: .75rem; font-weight: 750; background: #fff1cc; color: #6e4900; }
+.cards { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 16px; }
+.card, section, details { background: #fff; border: 1px solid #dce5e3; border-radius: 16px; }
+.card { padding: 22px; min-width: 0; }
+.card-label { font-size: .82rem; color: #526971; }
+.value { font-size: 2rem; font-weight: 750; letter-spacing: -.04em; margin: 8px 0; }
+.card small { display: block; color: #526971; }
+.delta { margin-top: 10px; font-weight: 650; color: #174b58; }
+section, details { margin-top: 24px; padding: 24px; }
+.scroll { overflow-x: auto; }
+table { border-collapse: collapse; width: 100%; font-size: .9rem; }
+th, td { border-bottom: 1px solid #e5ecea; padding: 13px 12px;
+  text-align: left; vertical-align: top; overflow-wrap: anywhere; }
+th { color: #526971; font-weight: 650; }
+tbody tr:last-child td { border-bottom: 0; }
+.bar { display: inline-block; height: .65rem; border-radius: 4px;
+  background: #167c80; margin-right: .6rem; max-width: 60%; }
+summary { cursor: pointer; font-weight: 700; }
+summary:focus-visible { outline: 3px solid #167c80; outline-offset: 5px; }
+details .scroll { margin-top: 18px; }
+footer { margin: 24px 0 0; color: #526971; font-size: .8rem; }
+@media (max-width: 850px) { .cards { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 480px) {
+  main { padding: 28px 16px; } .cards { grid-template-columns: 1fr; }
+  section, details { padding: 18px; } .card { padding: 20px; }
+}
 </style>
 </head>
 <body>
-<h1>LaundryBench report: $experiment_id</h1>
-<h2>Manifest</h2>
-<table>
-$manifest_rows
-</table>
-<h2>Metrics</h2>
-<table>
+<main>
+<header>
+<div class="eyebrow">LAUNDRYBENCH / EXPERIMENT REVIEW</div>
+<h1>Measure. Inspect. Improve.</h1>
+<div class="run-id">$experiment_id</div>
+<p>$provenance_badges</p>
+<p class="subtitle">A reproducible view of policy outcomes, failure patterns, and evidence quality.
+$evidence_note</p>
+</header>
+<div class="cards" aria-label="Candidate metrics">$cards</div>
+<section aria-labelledby="metrics-heading">
+<h2 id="metrics-heading">$metrics_title</h2>
+<div class="scroll"><table>
 $metric_rows
-</table>
-<h2>Failure categories</h2>
-<table>
+</table></div>
+<p class="note">Success rate includes a 95% Wilson confidence interval.
+Completion time includes successful episodes only.</p>
+</section>
+<section aria-labelledby="failures-heading">
+<h2 id="failures-heading">Where episodes failed</h2>
+<div class="scroll"><table>
 $failure_rows
-</table>
+</table></div>
+<p class="note">Counts describe observed labels; quality flags are reported separately.</p>
+</section>
+<details><summary>Reproduction details &amp; provenance</summary>
+<div class="scroll"><table>$manifest_rows</table></div>
+</details>
+<footer>Generated from LaundryBench run artifacts. Compare runs under the same task and protocol.
+This report does not establish statistical significance or hardware readiness.</footer>
+</main>
 </body>
 </html>
 """
@@ -126,6 +177,8 @@ def _percent(value: float) -> str:
 
 
 def _success_rate(summary: dict) -> str:
+    if not summary["episodes"]:
+        return "— (no episodes recorded)"
     low, high = summary["success_rate_ci"]
     return (
         f"{_percent(summary['success_rate'])} "
@@ -147,6 +200,44 @@ def _failure_cell(counts: dict[str, int], category: str, scale: int) -> str:
     return f'<span class="bar" style="width: {width}rem"></span>{count}'
 
 
+def _provenance(summary: dict) -> tuple[str, str]:
+    """Label only explicit manifest evidence; never infer physical execution."""
+    implementation = str(summary.get("manifest", {}).get("robot_implementation", ""))
+    if implementation in {"mock", "MockRobot"}:
+        return "MOCK DATA", "Synthetic software validation; not physical robot performance."
+    return "EXECUTION UNVERIFIED", "Physical execution is not established by this report."
+
+
+def _cards(summary: dict, baseline: dict | None) -> str:
+    low, high = summary["success_rate_ci"]
+    quality = summary.get("quality")
+    cards = [
+        ("Success rate", _percent(summary["success_rate"]) if summary["episodes"] else "—",
+         (f"{summary['successes']} / {summary['episodes']} episodes · "
+          f"95% CI {_percent(low)}–{_percent(high)}")
+         if summary["episodes"] else "No episodes recorded; confidence interval unavailable"),
+        ("Median completion", f"{summary['median_completion_time_s']:.2f}s"
+         if summary["successes"] else "—",
+         "Successful episodes only" if summary["successes"] else "No successful episodes"),
+        ("Intervention rate", _percent(summary["intervention_rate"])
+         if summary["episodes"] else "—", "Operator interventions"),
+        ("Quality flags", str(quality["flagged"]) if quality else "—",
+         f"of {quality['episodes']} episodes" if quality else "No quality report available"),
+    ]
+    rendered = []
+    for index, (label, value, detail) in enumerate(cards):
+        delta = ""
+        if index == 0 and baseline is not None and summary["episodes"] and baseline["episodes"]:
+            difference = 100 * (summary["success_rate"] - baseline["success_rate"])
+            delta = f'<div class="delta">{difference:+.1f} pp vs baseline</div>'
+        rendered.append(
+            f'<article class="card"><div class="card-label">{escape(label)}</div>'
+            f'<div class="value">{escape(value)}</div><small>{escape(detail)}</small>'
+            f'{delta}</article>'
+        )
+    return "".join(rendered)
+
+
 def render_html(summary: dict, baseline: dict | None = None) -> str:
     """Render a self-contained static HTML report; adds a baseline column when given."""
 
@@ -162,8 +253,10 @@ def render_html(summary: dict, baseline: dict | None = None) -> str:
 
     metrics = [
         ("Success rate", _success_rate),
-        ("Median completion time (s)", lambda s: f"{s['median_completion_time_s']:.3f}"),
-        ("Intervention rate", lambda s: _percent(s["intervention_rate"])),
+        ("Median completion time (s)", lambda s: f"{s['median_completion_time_s']:.3f}"
+         if s["successes"] else "— (no successful episodes)"),
+        ("Intervention rate", lambda s: _percent(s["intervention_rate"])
+         if s["episodes"] else "— (no episodes recorded)"),
         ("Quality flags", _quality),
     ]
     metric_rows = [header] + [
@@ -180,11 +273,24 @@ def render_html(summary: dict, baseline: dict | None = None) -> str:
             for c in categories
         ]
     else:
-        failure_rows = [_row(["No failed episodes."])]
+        message = "No failed episodes." if summary["episodes"] else "No episodes recorded."
+        failure_rows = [_row([message])]
+
+    badge, note = _provenance(summary)
+    provenance_badges = f'<span class="badge">Candidate: {badge}</span>'
+    if baseline is not None:
+        baseline_badge, baseline_note = _provenance(baseline)
+        provenance_badges += f' <span class="badge">Baseline: {baseline_badge}</span>'
+        if baseline_note != note:
+            note += " Baseline: " + baseline_note
 
     return _PAGE.substitute(
         experiment_id=escape(str(summary.get("manifest", {}).get("experiment_id", "unknown"))),
         manifest_rows="\n".join(manifest_rows),
         metric_rows="\n".join(metric_rows),
         failure_rows="\n".join(failure_rows),
+        cards=_cards(summary, baseline),
+        provenance_badges=provenance_badges,
+        evidence_note=escape(note),
+        metrics_title="Candidate vs baseline" if baseline is not None else "Run metrics",
     )
