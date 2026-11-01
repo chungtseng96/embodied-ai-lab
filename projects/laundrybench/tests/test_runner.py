@@ -36,8 +36,28 @@ def test_episode_paces_at_control_hz(fake_clock) -> None:
     assert result.duration_s == pytest.approx(0.6)  # success returns before the 4th pacing sleep
 
 
+def test_episode_stops_when_clock_never_advances() -> None:
+    result = run_episode(
+        MockRobot(),
+        MockPolicy(),
+        MockSuccessJudge(success_after_steps=10_000),
+        control_hz=10,
+        timeout_s=1.0,
+        clock=lambda: 0.0,
+        sleep=lambda dt: None,
+    )
+    assert result.success is False
+    assert result.metadata["steps"] == 11
+
+
 @pytest.mark.parametrize(
-    "kwargs", [{"control_hz": 0, "timeout_s": 1}, {"control_hz": 10, "timeout_s": 0}]
+    "kwargs",
+    [
+        {"control_hz": 0, "timeout_s": 1},
+        {"control_hz": 10, "timeout_s": 0},
+        {"control_hz": float("inf"), "timeout_s": 1},
+        {"control_hz": 10, "timeout_s": float("nan")},
+    ],
 )
 def test_episode_rejects_non_positive_timing(kwargs) -> None:
     with pytest.raises(ValueError):
