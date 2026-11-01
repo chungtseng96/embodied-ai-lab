@@ -25,7 +25,7 @@ def main() -> None:
 
     results = []
     for _ in range(args.episodes):
-        result = run_episode(robot, policy, judge)
+        result = run_episode(robot, policy, judge, control_hz=30, timeout_s=30.0)
         logger.log(result)
         results.append(result)
 
