@@ -1,12 +1,19 @@
-### What is changing?
+## Change and acceptance
 
-### Why now?
+What user-visible behavior or engineering problem does this solve?
+Link the Linear issue/spec, explain why now and state the acceptance criteria.
 
-### How is it tested?
+## Evidence
 
-<!-- Paste the `GATE PASS` line and pytest summary from `make check`. -->
-<!-- If this touches an experiment: state `Hardware: mock | physical`. -->
+- Commands and results (include CI link or tested commit SHA):
+- UI change: screenshot and the input used to generate it, if applicable.
+- Experiment change: dataset/checkpoint/config identity and result artifact links.
+- Limitations or checks not run; distinguish mock from physical evidence.
 
-- [ ] `make check` passes locally
-- [ ] Docs updated (`AGENTS.md`, `CONTEXT.md`, README, or ADR) if behavior or layout changed
-- [ ] No mock result is presented as a robot result
+## Review and ownership
+
+For agent-assisted changes, state the agent's scope, the independent review
+performed and any material finding corrected. State the human decision or
+tradeoff. Use "not performed" when no independent review occurred.
+Omit model/cost/time claims unless measured. Do not paste private transcripts,
+credentials, datasets, checkpoints or videos.

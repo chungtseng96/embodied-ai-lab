@@ -6,7 +6,7 @@
 **Owner:** <name>
 
 <!-- All four header fields are checked by tests/test_experiment_docs.py. Hardware must be exactly
-     `mock` or `physical`. Mock results are never robot results (see CONTEXT.md). -->
+     `mock` or `physical`. Mock results are never robot results (see the repository AGENTS.md and projects/laundrybench/experiments/README.md). -->
 
 ## Question
 

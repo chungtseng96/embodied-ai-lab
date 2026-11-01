@@ -15,7 +15,5 @@ jobs:
           python-version: "3.11"
       - name: Install LaundryBench
         run: make install
-      # Same command developers run locally. Do not add steps here that
-      # `make check` does not run; add a target to the Makefile instead.
-      - name: Gate
+      - name: Lint, test, and script smoke checks
         run: make check

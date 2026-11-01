@@ -30,22 +30,16 @@ robot experience
 ```text
 embodied-ai-lab/
 ├── START-HERE.md
-├── AGENTS.md               # entry point for AI agents (CLAUDE.md links here)
 ├── ROADMAP.md
 ├── docs/
-│   ├── README.md           # which doc to read for what
 │   ├── fundamentals/       # concepts being learned
 │   ├── cheatsheets/        # fast interview/debug references
 │   ├── architecture/       # system design + ADRs
 │   ├── journal/            # learning log
-│   ├── plans/              # dated design / work plans
 │   └── templates/          # reusable notes/experiments
 ├── labs/                   # small concept -> code -> hardware exercises
-├── skills/                 # repo-local agent workflows (linked as .claude/skills)
 ├── projects/
 │   └── laundrybench/
-│       ├── AGENTS.md       # code-level agent guide
-│       ├── CONTEXT.md      # glossary, invariants, parked questions
 │       ├── configs/
 │       ├── experiments/
 │       ├── scripts/
@@ -78,9 +72,12 @@ embodied-ai-lab/
 
 ## Quick start: mock software loop
 
+`make check` needs Python 3.11+. Create the virtual environment once; `make`
+then uses `.venv/bin/python` by default:
+
 ```bash
-make install
-make test
+python3.11 -m venv .venv && .venv/bin/python -m pip install -e "projects/laundrybench[dev]"
+make check
 make demo
 ```
 

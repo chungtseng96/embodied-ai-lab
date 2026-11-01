@@ -64,7 +64,9 @@ def main() -> None:
         )
 
     if not lerobot_available:
-        raise SystemExit("LeRobot POC check failed: install LeRobot with `python -m pip install lerobot`.")
+        raise SystemExit(
+            "LeRobot POC check failed: install LeRobot with `python -m pip install lerobot`."
+        )
 
 
 if __name__ == "__main__":

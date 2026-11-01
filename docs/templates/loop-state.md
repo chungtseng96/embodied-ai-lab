@@ -9,7 +9,7 @@ item. Evidence means a command and its output, a file path, or a test name, not 
 |------|--------|-------------------------|------|
 | <item> | todo | | |
 | <item> | in progress | | |
-| <item> | done | `make check` → `GATE PASS`, 6 passed | |
+| <item> | done | `make check` → exit 0, <actual pytest summary> | |
 | <item> | blocked | why, and what was tried | |
 | Needs me | ready | decisions only a human can make: spend money, delete data, move the robot, change the evaluation protocol | |
 

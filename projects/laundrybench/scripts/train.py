@@ -3,7 +3,8 @@
 
 def main() -> None:
     raise SystemExit(
-        "Training is not wired yet. Start with LeRobot ACT after the first demonstration dataset exists."
+        "Training is not wired yet. Start with LeRobot ACT after the first demonstration "
+        "dataset exists."
     )
 
 

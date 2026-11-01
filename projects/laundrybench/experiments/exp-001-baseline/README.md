@@ -1,6 +1,6 @@
 # EXP-001 — Baseline
 
-**Date:** 2026-09-15
+**Date:** 2026-11-01
 **Status:** Planned
 **Hardware:** physical
 **Owner:** Chung-Tseng Wang

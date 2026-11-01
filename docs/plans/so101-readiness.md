@@ -1,9 +1,5 @@
 # SO-101 readiness plan
 
-**Date:** 2026-09-17
-**Status:** In progress
-**Owner:** Chung-Tseng Wang
-
 **Objective:** be able to calibrate, record, train, evaluate, and run a first
 controlled rollout as soon as the SO-101 arrives, without depending on a
 notebook.
@@ -64,9 +60,10 @@ The initial repository contract is implemented in:
 - [SO-101 bring-up skill](../../skills/so101-bringup/SKILL.md);
 - [development environment design](../architecture/robot-learning-development-environment.md).
 
-The next refinement is to add the cloud image and a config validator after the
-first supported Linux installation is available. Do not hide that work behind
-a notebook.
+Further work is tracked in the
+[V1 implementation plan](2026-10-31-laundrybench-v1-implementation.md): config
+validation is Task 5 there, and the cloud image is in its Deferred section. Do
+not hide that work behind a notebook.
 
 ## Phase 2: hardware bring-up
 

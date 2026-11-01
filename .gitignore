@@ -33,6 +33,5 @@ projects/laundrybench/data/processed/
 .vscode/
 .idea/
 
-# Agent scratch space (see AGENTS.md)
-.claude/scratch/
+# Local agent continuation scratch
 /LOOP-STATE.md

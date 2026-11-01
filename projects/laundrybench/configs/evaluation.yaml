@@ -1,12 +1,13 @@
 evaluation:
   attempts_per_condition: 10
-  max_steps: 20
+  control_hz: 30
+  seed: 7
   record_video: true
   record_joint_state: true
   record_policy_metadata: true
   require_manual_success_label: true
   metrics:
     - success_rate
-    - completion_time_seconds
-    - human_intervention_rate
+    - median_completion_time_s
+    - intervention_rate
     - failure_category_counts

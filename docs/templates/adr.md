@@ -26,5 +26,4 @@ One or two sentences. State what we will do, not what we considered.
 What gets harder or is given up. Include the negative.
 
 <!-- ADRs are immutable once Accepted. To change one, write a new ADR with `Amends: ADR NNN` and
-     set the old one's Status to `Superseded by NNN` (the only edit allowed). Add both to
-     docs/architecture/decisions/README.md. -->
+     set the old one's Status to `Superseded by NNN` (the only edit allowed). Link both from the relevant architecture document. -->
