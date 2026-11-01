@@ -16,3 +16,6 @@ class Robot(Protocol):
 
     def apply(self, action: Action) -> None:
         ...
+
+    def stop(self) -> None:
+        ...

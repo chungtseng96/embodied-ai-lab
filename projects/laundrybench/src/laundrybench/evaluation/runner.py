@@ -19,27 +19,31 @@ def run_episode(
     """Run one closed-loop episode against a robot, policy, and success judge."""
 
     robot.reset()
+    policy.reset()
     start = time.perf_counter()
-    observation = robot.observe()
-
-    for step in range(max_steps):
-        action = policy.act(observation)
-        robot.apply(action)
+    try:
         observation = robot.observe()
 
-        if judge.is_success(observation):
-            return EpisodeResult(
-                episode_id=str(uuid.uuid4()),
-                success=True,
-                duration_s=time.perf_counter() - start,
-                metadata={"steps": step + 1, "policy": policy.name},
-            )
+        for step in range(max_steps):
+            action = policy.act(observation)
+            robot.apply(action)
+            observation = robot.observe()
 
-    success = judge.on_timeout(observation)
-    return EpisodeResult(
-        episode_id=str(uuid.uuid4()),
-        success=success,
-        duration_s=time.perf_counter() - start,
-        failure_category=None if success else "timeout_or_task_failure",
-        metadata={"steps": max_steps, "policy": policy.name},
-    )
+            if judge.is_success(observation):
+                return EpisodeResult(
+                    episode_id=str(uuid.uuid4()),
+                    success=True,
+                    duration_s=time.perf_counter() - start,
+                    metadata={"steps": step + 1, "policy": policy.name},
+                )
+
+        success = judge.on_timeout(observation)
+        return EpisodeResult(
+            episode_id=str(uuid.uuid4()),
+            success=success,
+            duration_s=time.perf_counter() - start,
+            failure_category=None if success else "timeout_or_task_failure",
+            metadata={"steps": max_steps, "policy": policy.name},
+        )
+    finally:
+        robot.stop()
