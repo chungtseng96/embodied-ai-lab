@@ -76,3 +76,56 @@ def test_render_html_includes_baseline_column():
     assert "missed_grasp" in html
 
     assert "Baseline" not in render_html(candidate)
+
+
+def test_report_provenance_does_not_claim_physical_execution():
+    summary = _summary("exp-001-review", 0.7)
+    summary["manifest"]["robot_implementation"] = "mock"
+    html = render_html(summary)
+    assert "MOCK DATA" in html
+    assert "not physical robot performance" in html
+
+    summary["manifest"]["robot_implementation"] = "so101"
+    assert "EXECUTION UNVERIFIED" in render_html(summary)
+    del summary["manifest"]["robot_implementation"]
+    assert "EXECUTION UNVERIFIED" in render_html(summary)
+
+
+def test_report_escapes_run_content_and_shows_comparison_direction():
+    candidate = _summary("<script>alert(1)</script>", 0.7)
+    candidate["manifest"]["robot_implementation"] = "mock"
+    baseline = _summary("exp-000-baseline", 0.9)
+    html = render_html(candidate, baseline)
+    assert "<script>" not in html
+    assert "&lt;script&gt;" in html
+    assert "-20.0 pp vs baseline" in html
+    assert "Baseline: EXECUTION UNVERIFIED" in html
+
+
+def test_report_empty_results_and_missing_quality_are_explicit(tmp_path):
+    write_manifest(
+        tmp_path / "manifest.yaml",
+        RunManifest(
+            "exp-000-empty", "2026-11-01T00:00:00Z", "abc", "deadbeef", 7,
+            "mock-policy", "mock", "3.11.0", None,
+        ),
+    )
+    (tmp_path / "episodes.jsonl").write_text("", encoding="utf-8")
+    summary = build_summary(tmp_path)
+    html = render_html(summary)
+    assert "No successful episodes" in html
+    assert "No quality report available" in html
+    assert "No episodes recorded" in html
+    assert "No failed episodes" not in html
+    assert "0.0%" not in html
+    assert "0.000" not in html
+    assert "pp vs baseline" not in render_html(summary, _summary("exp-001-baseline", 0.9))
+
+
+def test_report_no_successful_episodes_has_no_completion_time():
+    summary = _summary("exp-001-failed", 0.0)
+    summary["median_completion_time_s"] = 0.0
+    html = render_html(summary)
+    assert "No successful episodes" in html
+    assert "— (no successful episodes)" in html
+    assert "0.000" not in html
