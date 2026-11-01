@@ -5,18 +5,32 @@ import math
 import mimetypes
 import os
 import re
+import stat
 import tempfile
 import threading
 from dataclasses import asdict
 from datetime import UTC, datetime
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
-from urllib.parse import unquote, urlsplit
+from urllib.parse import quote, unquote, urlsplit
 
 import yaml
 
-from laundrybench.evaluation.metrics import summarize
-from laundrybench.evaluation.report import wilson_interval
+from laundrybench.evaluation.media import (
+    MediaError,
+    copy_byte_range,
+    parse_byte_range,
+    read_episode_media,
+    resolve_media,
+)
+from laundrybench.evaluation.outcomes import (
+    LABEL_FILE,
+    OUTCOME_SCHEMA_VERSION,
+    resolve_episode,
+    summarize_outcomes,
+    validate_episode_records,
+    validate_labels,
+)
 from laundrybench.types import EpisodeResult, FailureCategory
 
 _ID = re.compile(r"[A-Za-z0-9][A-Za-z0-9_-]{0,199}\Z")
@@ -83,43 +97,11 @@ class RunStore:
             raise ValueError("invalid YAML artifact") from error
 
     def labels(self, run: Path, episode_ids: set[str]) -> dict:
-        labels = self.read(run, "labels.json", {"revision": 0, "labels": {}})
-        if (
-            not isinstance(labels, dict)
-            or set(labels) != {"revision", "labels"}
-            or type(labels["revision"]) is not int
-            or labels["revision"] < 0
-            or not isinstance(labels["labels"], dict)
-        ):
-            raise APIError(422, "invalid labels artifact")
-        for episode_id, entry in labels["labels"].items():
-            required = {
-                "success",
-                "intervention",
-                "failure_category",
-                "notes",
-                "revision",
-                "updated_at",
-            }
-            if (
-                episode_id not in episode_ids
-                or not isinstance(entry, dict)
-                or set(entry) != required
-                or type(entry["revision"]) is not int
-                or not 1 <= entry["revision"] <= labels["revision"]
-                or not isinstance(entry["updated_at"], str)
-            ):
-                raise APIError(422, "invalid stored episode label")
-            self.validate_label(
-                {
-                    **{
-                        key: entry[key]
-                        for key in ("success", "intervention", "failure_category", "notes")
-                    },
-                    "expected_revision": labels["revision"],
-                }
-            )
-        return labels
+        labels = self.read(run, LABEL_FILE, {"revision": 0, "labels": {}})
+        try:
+            return validate_labels(labels, episode_ids)
+        except (TypeError, ValueError) as error:
+            raise APIError(422, str(error)) from error
 
     def detail(self, run_id: str) -> dict:
         with self.lock:
@@ -130,6 +112,10 @@ class RunStore:
             records = [
                 json.loads(line) for line in episodes_path.read_text().splitlines() if line.strip()
             ]
+            try:
+                validate_episode_records(records)
+            except (TypeError, ValueError) as error:
+                raise APIError(422, str(error)) from error
             episode_ids = set()
             for record in records:
                 if (
@@ -148,15 +134,12 @@ class RunStore:
                 episode_ids.add(record["episode_id"])
             labels = self.labels(run, episode_ids)
             revision = labels["revision"]
-            results, episodes = [], []
+            episodes = []
             for record in records:
-                original = {
-                    key: record.get(key) for key in ("success", "failure_category", "intervention")
-                }
                 label = labels["labels"].get(record["episode_id"])
+                resolved = resolve_episode(record, label)
                 effective = dict(record)
-                if label:
-                    effective.update({key: label[key] for key in original})
+                effective.update(resolved["effective_outcome"])
                 category = effective.get("failure_category")
                 result = EpisodeResult(
                     episode_id=effective["episode_id"],
@@ -166,20 +149,19 @@ class RunStore:
                     failure_category=FailureCategory(category) if category else None,
                     metadata=effective.get("metadata", {}),
                 )
-                results.append(result)
+                annotation_status = {
+                    "reviewed": "labelled",
+                    "excluded": "excluded",
+                    "provisional": "unlabelled",
+                }[resolved["review_status"]]
                 episodes.append(
                     {
                         **asdict(result),
-                        "original_outcome": original,
-                        "annotation": {"status": "labelled", **label}
-                        if label
-                        else {"status": "unlabelled"},
+                        **resolved,
+                        "annotation": {**(label or {}), "status": annotation_status},
                     }
                 )
-            summary = dict(summarize(results))
-            summary["success_rate_ci"] = list(
-                wilson_interval(summary["successes"], summary["episodes"])
-            )
+            summary = summarize_outcomes(records, labels["labels"], revision)
             quality = self.read(run, "quality.json")
             manifest = self.read(run, "manifest.yaml", {}) or {}
             if not isinstance(manifest, dict) or (
@@ -196,7 +178,9 @@ class RunStore:
                 "quality": quality,
                 "episodes": episodes,
                 "revision": revision,
-                "labelled_episodes": sum(e["annotation"]["status"] == "labelled" for e in episodes),
+                "labelled_episodes": sum(
+                    e["annotation"]["status"] != "unlabelled" for e in episodes
+                ),
             }
 
     def runs(self) -> list[dict]:
@@ -231,16 +215,60 @@ class RunStore:
             ]
         return {"episode_id": episode_id, "steps": steps}
 
+    def media_manifest(self, run_id: str, episode_id: str) -> dict:
+        detail = self.detail(run_id)
+        if episode_id not in {episode["episode_id"] for episode in detail["episodes"]}:
+            raise APIError(404, "episode not found")
+        try:
+            manifest = read_episode_media(self.run_path(run_id), episode_id)
+        except MediaError as error:
+            raise APIError(422, str(error)) from error
+        for stream in manifest["streams"]:
+            stream["url"] = (
+                f"/api/runs/{quote(run_id, safe='')}/episodes/{quote(episode_id, safe='')}"
+                f"/media/{quote(stream['camera'], safe='')}"
+            )
+        return manifest
+
+    def media_file(self, run_id: str, episode_id: str, camera: str) -> tuple[Path, str]:
+        manifest = self.media_manifest(run_id, episode_id)
+        try:
+            stream = next((item for item in manifest["streams"] if item["camera"] == camera), None)
+            if stream is None:
+                raise APIError(404, "camera media not found")
+            path = resolve_media(self.run_path(run_id), episode_id, camera)
+        except MediaError as error:
+            raise APIError(422, str(error)) from error
+        return path, stream["mime_type"]
+
     @staticmethod
     def validate_label(payload: dict) -> None:
         """Task success excludes assistance; failed assists retain their root-cause category."""
+        if isinstance(payload, dict) and payload.get("status") == "excluded":
+            if set(payload) != {"status", "exclusion_reason", "expected_revision"}:
+                raise APIError(
+                    422,
+                    "excluded labels require status, exclusion_reason and expected_revision",
+                )
+            reason = payload["exclusion_reason"]
+            if (
+                not isinstance(reason, str)
+                or not reason.strip()
+                or len(reason) > 4000
+                or type(payload["expected_revision"]) is not int
+                or payload["expected_revision"] < 0
+            ):
+                raise APIError(422, "invalid exclusion reason or expected_revision")
+            return
         required = {"success", "intervention", "failure_category", "notes", "expected_revision"}
-        if not isinstance(payload, dict) or set(payload) != required:
+        if not isinstance(payload, dict) or set(payload) not in (required, required | {"status"}):
             raise APIError(
                 422,
-                "provide exactly success, intervention, failure_category, "
+                "provide reviewed success, intervention, failure_category, "
                 "notes and expected_revision",
             )
+        if payload.get("status", "reviewed") != "reviewed":
+            raise APIError(422, "status must be reviewed or excluded")
         if (
             type(payload["success"]) is not bool
             or type(payload["intervention"]) is not bool
@@ -268,14 +296,22 @@ class RunStore:
                 raise APIError(409, "labels changed; reload before saving")
             run = self.run_path(run_id)
             labels = self.labels(run, {e["episode_id"] for e in detail["episodes"]})
-            labels["revision"] += 1
-            labels["labels"][episode_id] = {
-                key: value for key, value in payload.items() if key != "expected_revision"
+            labels = {
+                "schema_version": OUTCOME_SCHEMA_VERSION,
+                "revision": labels["revision"],
+                "labels": {
+                    episode_id: (
+                        {"status": "reviewed", **entry} if "status" not in entry else entry
+                    )
+                    for episode_id, entry in labels["labels"].items()
+                },
             }
-            labels["labels"][episode_id].update(
-                revision=labels["revision"], updated_at=datetime.now(UTC).isoformat()
-            )
-            target = self.artifact(run, "labels.json")
+            labels["revision"] += 1
+            new_entry = {key: value for key, value in payload.items() if key != "expected_revision"}
+            new_entry.setdefault("status", "reviewed")
+            new_entry.update(revision=labels["revision"], updated_at=datetime.now(UTC).isoformat())
+            labels["labels"][episode_id] = new_entry
+            target = self.artifact(run, LABEL_FILE)
             fd, name = tempfile.mkstemp(prefix=".labels-", dir=run)
             try:
                 with os.fdopen(fd, "w", encoding="utf-8") as handle:
@@ -311,7 +347,8 @@ def create_server(
             self.send_header("X-Content-Type-Options", "nosniff")
             self.send_header("Content-Length", str(len(body)))
             self.end_headers()
-            self.wfile.write(body)
+            if self.command != "HEAD":
+                self.wfile.write(body)
 
         def parts(self):
             allowed = {
@@ -325,6 +362,99 @@ def create_server(
                 raise APIError(404, "not found")
             return path, path.strip("/").split("/")
 
+        def serve_episode_media(
+            self, run_id: str, episode_id: str, camera: str, *, head: bool
+        ) -> None:
+            handle = None
+            try:
+                media_path, mime_type = store.media_file(run_id, episode_id, camera)
+                flags = os.O_RDONLY | getattr(os, "O_BINARY", 0) | getattr(os, "O_NOFOLLOW", 0)
+                handle = os.fdopen(os.open(media_path, flags), "rb")
+                info = os.fstat(handle.fileno())
+                if not stat.S_ISREG(info.st_mode):
+                    raise APIError(422, "media artifact is not a regular file")
+                size = info.st_size
+                if size <= 0:
+                    raise APIError(422, "media artifact is empty")
+                range_header = self.headers.get("Range")
+                if (
+                    head
+                    or self.headers.get("If-Range")
+                    or (range_header and "," in range_header)
+                    or (
+                        range_header
+                        and "=" in range_header
+                        and range_header.split("=", 1)[0].strip().lower() != "bytes"
+                    )
+                ):
+                    # Range applies to GET; unsupported multipart ranges and
+                    # conditional ranges without validators safely fall back
+                    # to a complete representation.
+                    range_header = None
+                elif range_header and "=" in range_header:
+                    unit, spec = range_header.split("=", 1)
+                    if unit.strip().lower() == "bytes":
+                        range_header = f"bytes={spec}"
+                try:
+                    byte_range = parse_byte_range(range_header, size) if range_header else None
+                except MediaError:
+                    self.send_response(416)
+                    self.send_header("Content-Type", "application/json; charset=utf-8")
+                    self.send_header("Content-Range", f"bytes */{size}")
+                    self.send_header("Accept-Ranges", "bytes")
+                    self.send_header("Cache-Control", "no-store")
+                    self.send_header("X-Content-Type-Options", "nosniff")
+                    self.send_header("Content-Length", "0")
+                    self.end_headers()
+                    return
+
+                if byte_range is None:
+                    status, start, end = 200, 0, size - 1
+                else:
+                    status, (start, end) = 206, byte_range
+                self.send_response(status)
+                self.send_header("Content-Type", mime_type)
+                self.send_header("Accept-Ranges", "bytes")
+                self.send_header("Cache-Control", "no-store")
+                self.send_header("X-Content-Type-Options", "nosniff")
+                self.send_header("Content-Length", str(end - start + 1))
+                if status == 206:
+                    self.send_header("Content-Range", f"bytes {start}-{end}/{size}")
+                self.end_headers()
+                if not head:
+                    try:
+                        copy_byte_range(handle, self.wfile, start, end)
+                    except (MediaError, OSError):
+                        # Headers are already sent; a JSON error here would corrupt
+                        # the video response. Close the connection instead.
+                        self.close_connection = True
+            except APIError as error:
+                self.send_json(error.status, {"error": error.message})
+            except (OSError, ValueError, KeyError, TypeError):
+                self.send_json(422, {"error": "run media artifacts are missing or invalid"})
+            finally:
+                if handle is not None:
+                    try:
+                        handle.close()
+                    except OSError:
+                        self.close_connection = True
+
+        def do_HEAD(self):
+            try:
+                _, parts = self.parts()
+                if (
+                    len(parts) == 7
+                    and parts[:2] == ["api", "runs"]
+                    and parts[3] == "episodes"
+                    and parts[5] == "media"
+                ):
+                    return self.serve_episode_media(parts[2], parts[4], parts[6], head=True)
+                raise APIError(404, "API route not found")
+            except APIError as error:
+                self.send_json(error.status, {"error": error.message})
+            except (OSError, ValueError, KeyError, TypeError):
+                self.send_json(422, {"error": "run artifacts are missing or invalid"})
+
         def do_GET(self):
             try:
                 path, parts = self.parts()
@@ -332,6 +462,20 @@ def create_server(
                     return self.send_json(200, {"runs": store.runs()})
                 if len(parts) == 3 and parts[:2] == ["api", "runs"]:
                     return self.send_json(200, store.detail(parts[2]))
+                if (
+                    len(parts) == 6
+                    and parts[:2] == ["api", "runs"]
+                    and parts[3] == "episodes"
+                    and parts[5] == "media"
+                ):
+                    return self.send_json(200, store.media_manifest(parts[2], parts[4]))
+                if (
+                    len(parts) == 7
+                    and parts[:2] == ["api", "runs"]
+                    and parts[3] == "episodes"
+                    and parts[5] == "media"
+                ):
+                    return self.serve_episode_media(parts[2], parts[4], parts[6], head=False)
                 if (
                     len(parts) == 6
                     and parts[:2] == ["api", "runs"]

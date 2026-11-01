@@ -10,34 +10,57 @@ export const categories = [
   "frozen_camera",
   "unspecified",
 ] as const;
-export type Label = {
+export type Outcome = {
   success: boolean;
   intervention: boolean;
   failure_category: string | null;
-  notes: string;
-  expected_revision: number;
 };
+export type ReviewStatus = "provisional" | "reviewed" | "excluded";
+export type Label =
+  | {
+      success: boolean;
+      intervention: boolean;
+      failure_category: string | null;
+      notes: string;
+      expected_revision: number;
+      status?: "reviewed";
+    }
+  | {
+      status: "excluded";
+      exclusion_reason: string;
+      expected_revision: number;
+    };
 export type Episode = {
   episode_id: string;
   success: boolean;
   duration_s: number;
   intervention: boolean;
   failure_category: string | null;
-  original_outcome: {
-    success: boolean;
-    intervention: boolean;
-    failure_category: string | null;
+  review_status: ReviewStatus;
+  outcome_source: "recorded" | "label";
+  effective_outcome: Outcome;
+  original_outcome: Outcome;
+  annotation: {
+    status: "unlabelled" | "labelled" | "excluded";
+    notes?: string;
+    exclusion_reason?: string;
   };
-  annotation: { status: "unlabelled" | "labelled"; notes?: string };
 };
 export type Summary = {
   episodes: number;
+  reviewed_episodes: number;
+  pending_episodes: number;
+  excluded_episodes: number;
+  metric_episodes: number;
   successes: number;
-  success_rate: number;
-  success_rate_ci?: number[];
-  median_completion_time_s: number;
-  intervention_rate: number;
+  success_rate: number | null;
+  reviewed_rate: number | null;
+  success_rate_ci: number[] | null;
+  median_completion_time_s: number | null;
+  intervention_rate: number | null;
   failure_category_counts: Record<string, number>;
+  outcome_schema_version: number;
+  label_revision: number;
 };
 export type Run = {
   id: string;

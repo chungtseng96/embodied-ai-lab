@@ -28,39 +28,68 @@ function LabelForm({
   onReload: () => void;
   onDirty: (dirty: boolean) => void;
 }) {
-  const [outcome, setOutcome] = useState(
-    episode.success ? "success" : "failure",
+  const [outcome, setOutcome] = useState<"success" | "failure" | "excluded">(
+    episode.review_status === "excluded"
+      ? "excluded"
+      : episode.effective_outcome.success
+        ? "success"
+        : "failure",
   );
   const [category, setCategory] = useState(
-    episode.failure_category || "unspecified",
+    episode.effective_outcome.failure_category || "unspecified",
   );
-  const [intervention, setIntervention] = useState(episode.intervention);
+  const [intervention, setIntervention] = useState(
+    episode.effective_outcome.intervention,
+  );
   const [notes, setNotes] = useState(episode.annotation.notes || "");
+  const [exclusionReason, setExclusionReason] = useState(
+    episode.annotation.exclusion_reason || "",
+  );
+  const [decisionTouched, setDecisionTouched] = useState(false);
   const [saving, setSaving] = useState(false),
     [error, setError] = useState(""),
     [conflict, setConflict] = useState(false);
   const isDirty =
-    outcome !== (episode.success ? "success" : "failure") ||
-    (outcome === "failure" &&
-      category !== (episode.failure_category || "unspecified")) ||
-    intervention !== episode.intervention ||
-    notes !== (episode.annotation.notes || "");
+    outcome === "excluded"
+      ? episode.review_status !== "excluded" ||
+        exclusionReason !== (episode.annotation.exclusion_reason || "")
+      : episode.review_status === "excluded" ||
+        (episode.review_status !== "reviewed" && decisionTouched) ||
+        outcome !==
+          (episode.effective_outcome.success ? "success" : "failure") ||
+        (outcome === "failure" &&
+          category !==
+            (episode.effective_outcome.failure_category || "unspecified")) ||
+        intervention !== episode.effective_outcome.intervention ||
+        notes !== (episode.annotation.notes || "");
   useEffect(() => {
     onDirty(isDirty);
   }, [isDirty, onDirty]);
   useEffect(() => () => onDirty(false), [onDirty]);
   async function save(event: FormEvent) {
     event.preventDefault();
+    if (outcome === "excluded" && !exclusionReason.trim()) {
+      setError("Enter a reason before excluding this episode.");
+      setConflict(false);
+      return;
+    }
     setSaving(true);
     setError("");
     setConflict(false);
-    const label: Label = {
-      success: outcome === "success",
-      intervention,
-      failure_category: outcome === "success" ? null : category,
-      notes,
-      expected_revision: run.revision,
-    };
+    const label: Label =
+      outcome === "excluded"
+        ? {
+            status: "excluded",
+            exclusion_reason: exclusionReason,
+            expected_revision: run.revision,
+          }
+        : {
+            success: outcome === "success",
+            intervention,
+            failure_category: outcome === "success" ? null : category,
+            notes,
+            expected_revision: run.revision,
+          };
     try {
       const updated = await request<Detail>(
         `${episodePath(run.id, episode.episode_id)}/label`,
@@ -78,29 +107,32 @@ function LabelForm({
       setSaving(false);
     }
   }
+  const statusLabel = isDirty
+    ? "Unsaved changes"
+    : episode.review_status === "reviewed"
+      ? "Reviewed"
+      : episode.review_status === "excluded"
+        ? "Excluded"
+        : "Needs review";
   return (
     <form onSubmit={save} className="label-form">
       <div className="section-heading">
         <h3>Manual review</h3>
         <span
-          className={`pill ${isDirty ? "amber" : episode.annotation.status === "labelled" ? "teal" : ""}`}
+          className={`pill ${isDirty ? "amber" : episode.review_status === "reviewed" ? "teal" : episode.review_status === "excluded" ? "excluded-pill" : ""}`}
           role="status"
         >
-          {isDirty
-            ? "Unsaved changes"
-            : episode.annotation.status === "labelled"
-              ? "Reviewed"
-              : "Needs review"}
+          {statusLabel}
         </span>
       </div>
       <p className="muted small">
-        Your review is saved separately from the original run. Metrics update
-        after saving. This task defines success as autonomous: assisted episodes
-        are failures; keep the actual failure reason when known.
+        Review the recorded outcome or exclude unusable evidence with a reason.
+        Only reviewed episodes contribute to outcome metrics. Assisted episodes
+        count as failures; keep the actual failure reason when known.
       </p>
       <fieldset disabled={saving}>
-        <legend>Episode outcome</legend>
-        <div className="segmented">
+        <legend>Review decision</legend>
+        <div className="segmented decision-options">
           <label className={outcome === "success" ? "chosen" : ""}>
             <input
               type="radio"
@@ -108,6 +140,7 @@ function LabelForm({
               value="success"
               checked={outcome === "success"}
               onChange={() => {
+                setDecisionTouched(true);
                 setOutcome("success");
                 setIntervention(false);
               }}
@@ -120,56 +153,92 @@ function LabelForm({
               name="outcome"
               value="failure"
               checked={outcome === "failure"}
-              onChange={() => setOutcome("failure")}
+              onChange={() => {
+                setDecisionTouched(true);
+                setOutcome("failure");
+              }}
             />
             Failure
           </label>
-        </div>
-        {outcome === "failure" && (
-          <label className="field">
-            Failure category
-            <select
-              value={category}
-              onChange={(e) => {
-                setCategory(e.target.value);
+          <label className={outcome === "excluded" ? "chosen" : ""}>
+            <input
+              type="radio"
+              name="outcome"
+              value="excluded"
+              checked={outcome === "excluded"}
+              onChange={() => {
+                setDecisionTouched(true);
+                setOutcome("excluded");
               }}
-            >
-              {categories.map((c) => (
-                <option key={c} value={c}>
-                  {c.replaceAll("_", " ")}
-                </option>
-              ))}
-            </select>
+            />
+            Exclude
           </label>
+        </div>
+        {outcome === "excluded" ? (
+          <label className="field">
+            Reason for exclusion
+            <textarea
+              value={exclusionReason}
+              onChange={(e) => setExclusionReason(e.target.value)}
+              maxLength={4000}
+              required
+              rows={3}
+              placeholder="Why is this episode unsuitable for outcome metrics?"
+            />
+          </label>
+        ) : (
+          <>
+            {outcome === "failure" && (
+              <label className="field">
+                Failure category
+                <select
+                  value={category}
+                  onChange={(e) => setCategory(e.target.value)}
+                >
+                  {categories.map((c) => (
+                    <option key={c} value={c}>
+                      {c.replaceAll("_", " ")}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            )}
+            <label className="check">
+              <input
+                type="checkbox"
+                checked={intervention}
+                onChange={(e) => {
+                  setIntervention(e.target.checked);
+                  if (e.target.checked) {
+                    setOutcome("failure");
+                    if (outcome === "success") setCategory("intervention");
+                  } else if (category === "intervention") {
+                    setCategory("unspecified");
+                  }
+                }}
+              />
+              Human intervention required
+            </label>
+            <label className="field">
+              Review notes
+              <textarea
+                value={notes}
+                maxLength={4000}
+                onChange={(e) => setNotes(e.target.value)}
+                rows={3}
+                placeholder="What happened? What should change next?"
+              />
+            </label>
+          </>
         )}
-        <label className="check">
-          <input
-            type="checkbox"
-            checked={intervention}
-            onChange={(e) => {
-              setIntervention(e.target.checked);
-              if (e.target.checked) {
-                setOutcome("failure");
-                if (outcome === "success") setCategory("intervention");
-              } else if (category === "intervention") {
-                setCategory("unspecified");
-              }
-            }}
-          />
-          Human intervention required
-        </label>
-        <label className="field">
-          Review notes
-          <textarea
-            value={notes}
-            maxLength={4000}
-            onChange={(e) => setNotes(e.target.value)}
-            rows={3}
-            placeholder="What happened? What should change next?"
-          />
-        </label>
         <button className="primary" type="submit">
-          {saving ? "Saving review…" : "Save review"}
+          {saving
+            ? outcome === "excluded"
+              ? "Saving exclusion…"
+              : "Saving review…"
+            : outcome === "excluded"
+              ? "Save exclusion"
+              : "Save review"}
         </button>
       </fieldset>
       {error && (
@@ -215,23 +284,51 @@ function EpisodeReview({ run, episode }: { run: Detail; episode: Episode }) {
           <div className="eyebrow">EPISODE EVIDENCE</div>
           <h2>{episode.episode_id}</h2>
         </div>
-        <span className={`status ${episode.success ? "success" : "failure"}`}>
-          {episode.success ? "Success" : "Failure"}
+        <span
+          className={`status ${episode.review_status === "reviewed" ? (episode.success ? "success" : "failure") : episode.review_status === "excluded" ? "excluded" : "pending"}`}
+        >
+          {episode.review_status === "reviewed"
+            ? episode.success
+              ? "Reviewed success"
+              : "Reviewed failure"
+            : episode.review_status === "excluded"
+              ? "Excluded"
+              : "Pending review"}
         </span>
       </div>
       <div className="episode-facts">
         <span>
           <b>{episode.original_outcome.success ? "Success" : "Failure"}</b>
-          Original outcome
+          Recorded outcome
         </span>
         <span>
-          <b>{episode.success ? "Success" : "Failure"}</b>Effective outcome
+          <b>
+            {episode.review_status === "reviewed"
+              ? episode.effective_outcome.success
+                ? "Success"
+                : "Failure"
+              : episode.review_status === "excluded"
+                ? "Excluded"
+                : "Pending"}
+          </b>
+          {episode.review_status === "reviewed"
+            ? "Reviewed outcome"
+            : "Metric status"}
         </span>
         <span>
           <b>{episode.duration_s.toFixed(2)}s</b>Duration
         </span>
         <span>
-          <b>{episode.intervention ? "Yes" : "No"}</b>Intervention
+          <b>
+            {episode.review_status === "reviewed"
+              ? episode.effective_outcome.intervention
+                ? "Yes"
+                : "No"
+              : episode.original_outcome.intervention
+                ? "Yes, recorded"
+                : "No, recorded"}
+          </b>
+          Intervention
         </span>
       </div>
       <div className="media-empty">
@@ -383,9 +480,11 @@ export default function App() {
     run?.episodes.filter(
       (e) =>
         filter === "all" ||
-        (filter === "unlabelled" && e.annotation.status === "unlabelled") ||
-        (filter === "success" && e.success) ||
-        (filter === "failure" && !e.success),
+        (filter === "unlabelled" && e.review_status === "provisional") ||
+        (filter === "reviewed" && e.review_status === "reviewed") ||
+        (filter === "excluded" && e.review_status === "excluded") ||
+        (filter === "success" && e.review_status === "reviewed" && e.success) ||
+        (filter === "failure" && e.review_status === "reviewed" && !e.success),
     ) || [];
   const episode = visible.find((e) => e.episode_id === episodeId) || visible[0];
   const queuedEpisodes = visible.filter((e) => {
@@ -394,7 +493,8 @@ export default function App() {
       !query ||
       e.episode_id.toLowerCase().includes(query) ||
       (e.failure_category || "").toLowerCase().includes(query) ||
-      (e.annotation.notes || "").toLowerCase().includes(query)
+      (e.annotation.notes || "").toLowerCase().includes(query) ||
+      (e.annotation.exclusion_reason || "").toLowerCase().includes(query)
     );
   });
   return (
@@ -455,8 +555,10 @@ export default function App() {
                 <span>
                   <strong>{r.id}</strong>
                   <small>
-                    {r.summary.episodes} episodes · {r.labelled_episodes}{" "}
-                    reviewed
+                    {r.summary.episodes} episodes ·{" "}
+                    {r.summary.reviewed_episodes} reviewed ·{" "}
+                    {r.summary.pending_episodes} pending ·{" "}
+                    {r.summary.excluded_episodes} excluded
                   </small>
                 </span>
                 <span className="run-arrow">↗</span>
@@ -588,14 +690,16 @@ export default function App() {
                   <div className="kpi">
                     <span>Success rate</span>
                     <strong>
-                      {run.summary.episodes
+                      {run.summary.metric_episodes > 0 &&
+                      run.summary.success_rate !== null
                         ? percent(run.summary.success_rate)
                         : "—"}
                     </strong>
                     <small>
-                      {run.summary.successes} of {run.summary.episodes} episodes
+                      {run.summary.successes} of {run.summary.metric_episodes}{" "}
+                      reviewed
                     </small>
-                    {run.summary.episodes > 0 &&
+                    {run.summary.metric_episodes > 0 &&
                       run.summary.success_rate_ci && (
                         <small>
                           95% CI{" "}
@@ -603,8 +707,10 @@ export default function App() {
                         </small>
                       )}
                     {baseline &&
-                      run.summary.episodes > 0 &&
-                      baseline.summary.episodes > 0 && (
+                      run.summary.metric_episodes > 0 &&
+                      baseline.summary.metric_episodes > 0 &&
+                      run.summary.success_rate !== null &&
+                      baseline.summary.success_rate !== null && (
                         <em>
                           {(
                             (run.summary.success_rate -
@@ -618,29 +724,36 @@ export default function App() {
                   <div className="kpi">
                     <span>Median completion</span>
                     <strong>
-                      {run.summary.successes
-                        ? `${run.summary.median_completion_time_s.toFixed(2)}`
+                      {run.summary.median_completion_time_s !== null
+                        ? run.summary.median_completion_time_s.toFixed(2)
                         : "—"}
-                      {run.summary.successes > 0 && <i>s</i>}
+                      {run.summary.median_completion_time_s !== null && (
+                        <i>s</i>
+                      )}
                     </strong>
                     <small>Successful episodes only</small>
                   </div>
                   <div className="kpi">
                     <span>Intervention rate</span>
                     <strong>
-                      {run.summary.episodes
+                      {run.summary.metric_episodes > 0 &&
+                      run.summary.intervention_rate !== null
                         ? percent(run.summary.intervention_rate)
                         : "—"}
                     </strong>
-                    <small>Human-assisted episodes</small>
+                    <small>Reviewed episodes only</small>
                   </div>
                   <div className="kpi">
-                    <span>Review coverage</span>
+                    <span>Decision coverage</span>
                     <strong>
                       {run.labelled_episodes}
                       <i>/ {run.summary.episodes}</i>
                     </strong>
-                    <small>Manual labels saved</small>
+                    <small>
+                      {run.summary.reviewed_episodes} reviewed ·{" "}
+                      {run.summary.pending_episodes} pending ·{" "}
+                      {run.summary.excluded_episodes} excluded
+                    </small>
                     <div className="coverage">
                       <span
                         style={{
@@ -661,7 +774,8 @@ export default function App() {
                       <div>
                         <dt>Success rate</dt>
                         <dd>
-                          {baseline.summary.episodes
+                          {baseline.summary.metric_episodes > 0 &&
+                          baseline.summary.success_rate !== null
                             ? percent(baseline.summary.success_rate)
                             : "—"}
                         </dd>
@@ -669,7 +783,7 @@ export default function App() {
                       <div>
                         <dt>Completion</dt>
                         <dd>
-                          {baseline.summary.successes
+                          {baseline.summary.median_completion_time_s !== null
                             ? `${baseline.summary.median_completion_time_s.toFixed(2)}s`
                             : "—"}
                         </dd>
@@ -677,7 +791,8 @@ export default function App() {
                       <div>
                         <dt>Interventions</dt>
                         <dd>
-                          {baseline.summary.episodes
+                          {baseline.summary.metric_episodes > 0 &&
+                          baseline.summary.intervention_rate !== null
                             ? percent(baseline.summary.intervention_rate)
                             : "—"}
                         </dd>
@@ -693,7 +808,9 @@ export default function App() {
                   <section className="panel failures">
                     <div className="section-heading">
                       <h3>Failure distribution</h3>
-                      <span className="muted small">Episode counts</span>
+                      <span className="muted small">
+                        Reviewed failure counts
+                      </span>
                     </div>
                     {Object.keys(run.summary.failure_category_counts).length ? (
                       Object.entries(run.summary.failure_category_counts).map(
@@ -703,7 +820,7 @@ export default function App() {
                             <div>
                               <i
                                 style={{
-                                  width: `${run.summary.episodes ? (100 * count) / run.summary.episodes : 0}%`,
+                                  width: `${run.summary.metric_episodes ? (100 * count) / run.summary.metric_episodes : 0}%`,
                                 }}
                               />
                             </div>
@@ -713,9 +830,12 @@ export default function App() {
                       )
                     ) : (
                       <p className="empty-inline">
-                        {run.summary.episodes
-                          ? "No failed episodes recorded."
-                          : "No episodes recorded."}
+                        {run.summary.metric_episodes
+                          ? "No reviewed failures."
+                          : run.summary.pending_episodes ||
+                              run.summary.excluded_episodes
+                            ? "No outcome metrics until at least one episode is reviewed."
+                            : "No episodes recorded."}
                       </p>
                     )}
                   </section>
@@ -778,6 +898,8 @@ export default function App() {
                   {[
                     ["all", "All"],
                     ["unlabelled", "Needs review"],
+                    ["reviewed", "Reviewed"],
+                    ["excluded", "Excluded"],
                     ["failure", "Failures"],
                     ["success", "Successes"],
                   ].map(([value, label]) => (
@@ -847,20 +969,33 @@ export default function App() {
                         <span className="episode-row-copy">
                           <strong>{e.episode_id}</strong>
                           <small>
-                            {e.annotation.status === "labelled"
+                            {e.review_status === "reviewed"
                               ? "Reviewed"
-                              : e.failure_category?.replaceAll("_", " ") ||
-                                "Needs review"}
+                              : e.review_status === "excluded"
+                                ? "Excluded"
+                                : "Pending review"}
                           </small>
                         </span>
                         <span className="episode-outcome">
                           <i
                             className={
-                              e.success ? "success-dot" : "failure-dot"
+                              e.review_status !== "reviewed"
+                                ? "pending-dot"
+                                : e.success
+                                  ? "success-dot"
+                                  : "failure-dot"
                             }
                           />
-                          {e.success ? "Success" : "Failure"} ·{" "}
-                          {e.duration_s.toFixed(1)}s
+                          {e.review_status === "reviewed"
+                            ? e.success
+                              ? "Success"
+                              : "Failure"
+                            : e.review_status === "excluded"
+                              ? "Excluded"
+                              : e.original_outcome.success
+                                ? "Recorded success"
+                                : "Recorded failure"}{" "}
+                          · {e.duration_s.toFixed(1)}s
                         </span>
                       </button>
                     ))}

@@ -33,23 +33,28 @@ it rewrites request-origin headers for the local Python API.
 1. Choose a run; inspect its provenance and whether execution is mock/unverified.
 2. Optionally select another run as baseline. Comparisons are descriptive; check
    task, protocol and sample sizes before interpreting differences.
-3. Filter/select an episode and inspect its recorded outcome and joint trace.
-4. Label success/failure, choose a failure reason, mark intervention and add notes.
-5. Save the review. Review coverage, success rate and failure counts refresh.
+3. Search/filter the episode queue and inspect evidence beside the labeling panel.
+4. Review success/failure, or exclude unusable evidence with a required reason.
+5. Save the review. Pending/reviewed/excluded counts and reviewed-only metrics refresh.
 
 The task defines success as autonomous: an assisted episode cannot count as
 success. Intervention and failure reason are separate; for example an assisted
 missed grasp keeps `missed_grasp`. Labels are post-episode verdicts, not
-per-frame action annotations or live robot commands. Video playback is not
-implemented because runs do not yet contain supported media references.
+per-frame action annotations or live robot commands. Recorded video is registered
+through the [media contract](media-contract.md); missing or unsupported media
+remains explicit. Media registration does not capture new camera footage.
 
 ## Evidence and persistence
 
 The API reads `manifest.yaml`, `episodes.jsonl`, `traces/steps.jsonl` and optional
 `quality.json`. Manual labels are atomically stored in `labels.json` beside them.
-Original episode and trace files are never overwritten by labeling. The frontend
-and API summaries apply the label overlay; the older CLI HTML report continues
-to summarize original episode evidence. It does not consume manual sidecars.
+Original episode and trace files are never overwritten by labeling. The frontend,
+API, CLI JSON summaries and HTML reports use one shared label-aware calculation.
+Only reviewed, non-excluded episodes enter outcome metrics; pending records and
+exclusions remain visible as separate counts. A run with no reviewed episodes
+has unavailable rates rather than a zero success rate. Labels include a schema
+version and revision; legacy sidecars remain readable and migrate on the next
+write. See the [outcome contract](outcome-contract.md).
 
 Writes carry the expected run revision. Stale tabs receive HTTP 409 and must
 reload before retrying; unsaved form edits remain available. Navigation warns
