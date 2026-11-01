@@ -2987,7 +2987,7 @@ kbd {
 .showcase-explorer .readonly-app .sidebar .nav-active {
   color: #a2dfd2;
 }
-.showcase-explorer .readonly-app main {
+.showcase-explorer .readonly-app .showcase-app-main {
   width: auto;
   margin: 0;
   min-width: 0;
@@ -3116,7 +3116,7 @@ kbd {
     min-height: 0;
     height: auto;
   }
-  .showcase-explorer main {
+  .showcase-explorer .showcase-app-main {
     width: 100%;
     margin: 0;
   }
