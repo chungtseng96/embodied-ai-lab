@@ -1,6 +1,7 @@
 evaluation:
   attempts_per_condition: 10
-  max_steps: 20
+  control_hz: 30
+  seed: 7
   record_video: true
   record_joint_state: true
   record_policy_metadata: true
