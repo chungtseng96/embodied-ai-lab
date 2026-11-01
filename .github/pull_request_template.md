@@ -1,7 +1,7 @@
 ## Change and acceptance
 
 What user-visible behavior or engineering problem does this solve?
-Link the Linear issue/spec and state the acceptance criteria.
+Link the Linear issue/spec, explain why now and state the acceptance criteria.
 
 ## Evidence
 
