@@ -33,5 +33,10 @@ projects/laundrybench/data/processed/
 .vscode/
 .idea/
 
+# Frontend dependencies and development caches
+node_modules/
+*.tsbuildinfo
+.preview-python/
+
 # Local agent continuation scratch
 /LOOP-STATE.md

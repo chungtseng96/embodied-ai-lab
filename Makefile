@@ -2,7 +2,7 @@ PYTHON ?= $(if $(wildcard .venv/bin/python),.venv/bin/python,python3)
 PYTHON_CMD := $(if $(findstring /,$(PYTHON)),$(abspath $(PYTHON)),$(PYTHON))
 PROJECT := projects/laundrybench
 
-.PHONY: install test demo lint check smoke lerobot-check host-check
+.PHONY: install test demo lint check smoke lerobot-check host-check frontend-install frontend-check web-demo web
 
 install:
 	cd $(PROJECT) && $(PYTHON_CMD) -m pip install -e ".[dev]"
@@ -27,3 +27,16 @@ lerobot-check:
 
 host-check:
 	$(PYTHON_CMD) $(PROJECT)/scripts/check_host_setup.py
+
+frontend-install:
+	npm ci --prefix $(PROJECT)/frontend
+
+frontend-check:
+	npm test --prefix $(PROJECT)/frontend
+	npm run build --prefix $(PROJECT)/frontend
+
+web-demo:
+	$(PYTHON_CMD) $(PROJECT)/scripts/demo_web.py --output-dir $(PROJECT)/outputs
+
+web:
+	$(PYTHON_CMD) $(PROJECT)/scripts/serve.py --outputs-root $(PROJECT)/outputs --frontend-dir $(PROJECT)/frontend/dist

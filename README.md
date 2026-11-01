@@ -73,9 +73,39 @@ embodied-ai-lab/
 - External USB camera ordered
 - Mock robot/policy architecture in place
 - Evaluation runner, metrics, and structured logging in place
-- Physical LeRobot integration intentionally waits for hardware bring-up
+- React results application and persistent manual review labels available
+- SO-101 adapter implemented with offline tests; device verification pending
 
 ## Quick start: mock software loop
+
+### Results and manual-labeling application
+
+The React/TypeScript frontend browses real run artifacts, compares experiments,
+shows episode traces and saves manual outcome labels through a local Python API.
+Labels survive reloads and update displayed metrics while preserving original
+episode records. It has no robot movement controls.
+
+After installing Python 3.11+ and Node.js 22+, run:
+
+```bash
+python3 -m venv .venv
+make install
+make frontend-install
+make frontend-check
+make web-demo
+make web
+```
+
+Open `http://127.0.0.1:8765`. `web-demo` creates two clearly marked synthetic runs
+without replacing existing runs or labels. To review your own data, point
+`projects/laundrybench/scripts/serve.py --outputs-root PATH --frontend-dir
+projects/laundrybench/frontend/dist` at the directory containing experiment
+folders. Run one writer server per outputs directory.
+
+The [operator guide](docs/architecture/results-application.md) explains review,
+label storage and development. The [SO-101 adapter](docs/architecture/so101-adapter.md)
+is implemented and tested offline; hardware calibration, recording, ACT training
+and physical rollout verification remain separate milestones.
 
 `make check` needs Python 3.11+. Create the virtual environment once; `make`
 then uses `.venv/bin/python` by default:
