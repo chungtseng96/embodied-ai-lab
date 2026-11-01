@@ -145,3 +145,36 @@ def test_runner_calls_on_step_each_step(fake_clock) -> None:
         on_step=lambda eid, i, o, a: seen.append((eid, i)),
     )
     assert seen == [("e", 0), ("e", 1), ("e", 2)]
+
+
+def test_runner_stops_robot_when_policy_reset_raises(fake_clock) -> None:
+    class ResetFailingPolicy:
+        name = "reset-boom"
+
+        def reset(self) -> None:
+            raise RuntimeError("reset boom")
+
+        def act(self, observation):
+            raise AssertionError("act must not be called")
+
+    class CountingRobot(MockRobot):
+        def __init__(self) -> None:
+            super().__init__()
+            self.stop_calls = 0
+
+        def stop(self) -> None:
+            self.stop_calls += 1
+            super().stop()
+
+    robot = CountingRobot()
+    with pytest.raises(RuntimeError, match="reset boom"):
+        run_episode(
+            robot,
+            ResetFailingPolicy(),
+            MockSuccessJudge(),
+            control_hz=10,
+            timeout_s=1.0,
+            clock=fake_clock.now,
+            sleep=fake_clock.sleep,
+        )
+    assert robot.stop_calls == 1

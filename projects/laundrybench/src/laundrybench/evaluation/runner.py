@@ -49,12 +49,12 @@ def run_episode(
     period_s = 1.0 / control_hz
     # A frozen or stalled clock must not hang an evaluation run, so cap steps as well as time.
     max_iterations = math.ceil(timeout_s * control_hz) + 1
-    robot.reset()
-    policy.reset()
-    start = clock()
-    next_tick = start
     steps = 0
     try:
+        robot.reset()
+        policy.reset()
+        start = clock()
+        next_tick = start
         observation = robot.observe()
 
         while steps < max_iterations and clock() - start < timeout_s:
