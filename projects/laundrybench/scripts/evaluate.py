@@ -4,12 +4,15 @@ import argparse
 import json
 import platform
 import re
+from collections import defaultdict
+from dataclasses import asdict
 from datetime import UTC, datetime
 from pathlib import Path
 
 from laundrybench.config import load_config
 from laundrybench.evaluation.judge import MockSuccessJudge
 from laundrybench.evaluation.metrics import summarize
+from laundrybench.evaluation.quality import check_episode_quality, write_quality_report
 from laundrybench.evaluation.runner import run_episode
 from laundrybench.observability.logger import JsonlEpisodeLogger, JsonlStepLogger
 from laundrybench.observability.manifest import (
@@ -95,6 +98,29 @@ def main() -> None:
         )
         logger.log(result)
         results.append(result)
+
+    steps_by_episode: dict[str, list[dict]] = defaultdict(list)
+    if steps_path.exists():
+        with steps_path.open(encoding="utf-8") as handle:
+            for line in handle:
+                record = json.loads(line)
+                steps_by_episode[record["episode_id"]].append(record)
+    flags = []
+    for result in results:
+        record = asdict(result)
+        record["failure_category"] = (
+            result.failure_category.value if result.failure_category is not None else None
+        )
+        flags.extend(
+            check_episode_quality(
+                steps_by_episode.get(result.episode_id, []),
+                control_hz=config.evaluation.control_hz,
+                result=record,
+            )
+        )
+    write_quality_report(
+        experiment_dir / "quality.json", flags, [result.episode_id for result in results]
+    )
 
     print(json.dumps(summarize(results), indent=2))
 
