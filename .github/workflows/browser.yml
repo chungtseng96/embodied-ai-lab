@@ -1,0 +1,42 @@
+name: Browser acceptance
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  browser:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Install ffmpeg
+        run: sudo apt-get update && sudo apt-get install -y ffmpeg
+      - name: Install LaundryBench
+        run: python -m pip install -e projects/laundrybench
+      - name: Install and build frontend
+        working-directory: projects/laundrybench/frontend
+        run: npm ci && npm run build
+      - name: Install browser harness
+        working-directory: projects/laundrybench/e2e
+        run: npm ci
+      - name: Install Playwright Chromium
+        working-directory: projects/laundrybench/e2e
+        run: npx playwright install --with-deps chromium
+      - name: Run real-backend browser acceptance
+        working-directory: projects/laundrybench/e2e
+        run: npm test
+      - name: Upload browser failure artifacts
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: laundrybench-browser-acceptance
+          path: projects/laundrybench/e2e/test-results/
+          if-no-files-found: ignore
+          retention-days: 7

@@ -62,10 +62,49 @@ export type Summary = {
   outcome_schema_version: number;
   label_revision: number;
 };
+export type ExperimentMetadata = {
+  schema_version: number;
+  revision: number;
+  name: string | null;
+  hypothesis: string | null;
+  what_changed: string | null;
+  task: { id: string | null; version: string | null };
+  protocol: { id: string | null; version: string | null };
+  dataset: { id: string | null; revision: string | null };
+  checkpoint: { identity: string | null };
+  effective_overrides: Record<string, unknown>;
+  evidence_links: { label: string; url: string }[];
+};
+export type Compatibility = {
+  status: "matched" | "mismatched" | "unknown";
+  reasons: string[];
+  differences: Record<string, { candidate: unknown; baseline: unknown }>;
+  advisories: string[];
+};
+export type ComparisonResult = {
+  candidate_id: string;
+  baseline_id: string;
+  candidate_context: ExperimentMetadata | null;
+  baseline_context: ExperimentMetadata | null;
+  candidate_label_revision: number;
+  baseline_label_revision: number;
+  compatibility: Compatibility;
+  candidate: Summary;
+  baseline: Summary;
+  delta: {
+    reviewed_episodes: number;
+    successes: number;
+    success_rate: number | null;
+    reviewed_rate: number | null;
+    intervention_rate: number | null;
+    failure_category_counts: Record<string, number>;
+  } | null;
+};
 export type Run = {
   id: string;
   summary: Summary;
   manifest: Record<string, unknown>;
+  experiment?: ExperimentMetadata | null;
   revision: number;
   labelled_episodes: number;
 };

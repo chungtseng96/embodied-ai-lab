@@ -22,6 +22,52 @@ configuration bytes. `effective_overrides` describes runtime overrides applied
 to that source and does not replace or rewrite the source hash. The sidecar is
 not a source of robot commands and is never written by the web server.
 
+## Populate provenance by workflow stage
+
+The recording, training, and physical rollout entry points are currently
+stubs; none of them writes run metadata today. `scripts/evaluate.py` runs the
+mock evaluation and writes `manifest.yaml` (including the source config hash,
+policy name, seed, and software provenance), but it does not create
+`experiment.json`. For an existing run, an operator supplies the missing
+context with `set_run_metadata.py` before comparing it:
+
+```json
+{
+  "schema_version": 1,
+  "name": "Tabletop shirt fold baseline",
+  "hypothesis": "The updated grasp point improves fold completion",
+  "what_changed": "Baseline checkpoint with the revised grasp point",
+  "task": {"id": "fold-shirt", "version": "1"},
+  "protocol": {"id": "tabletop-fold-eval", "version": "1"},
+  "dataset": {"id": "shirt-demos", "revision": "sha256:..."},
+  "checkpoint": {"identity": "sha256:..."},
+  "effective_overrides": {"evaluation.control_hz": 10},
+  "evidence_links": []
+}
+```
+
+Use explicit `null` for unavailable dataset or checkpoint identity, and an
+empty object when no runtime overrides were applied. The source `config_hash`
+is already in the manifest; do not copy it into `effective_overrides`. Task and
+protocol IDs and versions should be populated before comparing runs because
+their absence makes compatibility unknown.
+
+When the future wrappers are implemented, they should create the run's
+sidecar as part of writing its artifacts and carry stable provenance forward:
+
+| Workflow | Populate in the artifact's `experiment.json` |
+| --- | --- |
+| Recording | Task and collection protocol IDs/versions; dataset ID and committed revision; collection settings in `effective_overrides`; links to the dataset card or collection evidence. |
+| Training | Source dataset ID/revision; the produced checkpoint identity (prefer a content digest); training settings in `effective_overrides`; links to the training log or model record. |
+| Rollout/evaluation | Task and evaluation protocol IDs/versions; dataset and checkpoint identities used by the policy; runtime overrides; links to the rollout report and reviewable evidence. |
+
+Training provenance should be copied into a rollout run when that checkpoint is
+evaluated, so comparisons describe the artifact actually used. Wrappers should
+use the same atomic writer and revision rules as the CLI; updates should not
+silently overwrite operator-authored fields. Each stage should distinguish
+the immutable source config hash in `manifest.yaml` from the effective runtime
+overrides in the sidecar.
+
 Create a sidecar with:
 
 ```bash

@@ -74,6 +74,8 @@ embodied-ai-lab/
 - Mock robot/policy architecture in place
 - Evaluation runner, metrics, and structured logging in place
 - React results application and persistent manual review labels available
+- Run-context sidecars and compatibility-aware comparisons are implemented; reviewer keyboard controls and browser acceptance are in PR #32
+- Browser acceptance runs in GitHub Actions; see [PR #32 checks](https://github.com/chungtseng96/embodied-ai-lab/pull/32/checks) for the latest result
 - SO-101 adapter implemented with offline tests; device verification pending
 
 ## Quick start: mock software loop
@@ -103,7 +105,12 @@ projects/laundrybench/frontend/dist` at the directory containing experiment
 folders. Run one writer server per outputs directory.
 
 The [operator guide](docs/architecture/results-application.md) explains review,
-label storage and development. The [SO-101 adapter](docs/architecture/so101-adapter.md)
+label storage, keyboard shortcuts and development. Record task, protocol,
+dataset, checkpoint and configuration context in an `experiment.json` sidecar
+with [`set_run_metadata.py`](projects/laundrybench/scripts/set_run_metadata.py);
+the [experiment-context guide](docs/architecture/experiment-context.md) explains
+the schema and compatibility rules. The [browser acceptance guide](docs/architecture/browser-acceptance.md)
+documents the real-backend Playwright suite and CI workflow. The [SO-101 adapter](docs/architecture/so101-adapter.md)
 is implemented and tested offline; hardware calibration, recording, ACT training
 and physical rollout verification remain separate milestones.
 

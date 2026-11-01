@@ -2,6 +2,7 @@ import { FormEvent, useCallback, useEffect, useRef, useState } from "react";
 import {
   ApiError,
   categories,
+  ComparisonResult,
   Detail,
   Episode,
   episodePath,
@@ -21,12 +22,25 @@ function LabelForm({
   onSaved,
   onReload,
   onDirty,
+  navigationVersion,
+  queueEpisodeIds,
 }: {
   run: Detail;
   episode: Episode;
-  onSaved: (run: Detail) => void;
+  onSaved: (
+    run: Detail,
+    context: {
+      runId: string;
+      episodeId: string;
+      navigationVersion: number;
+      saveNext: boolean;
+      queueEpisodeIds: string[];
+    },
+  ) => void;
   onReload: () => void;
   onDirty: (dirty: boolean) => void;
+  navigationVersion: number;
+  queueEpisodeIds: string[];
 }) {
   const [outcome, setOutcome] = useState<"success" | "failure" | "excluded">(
     episode.review_status === "excluded"
@@ -66,8 +80,11 @@ function LabelForm({
     onDirty(isDirty);
   }, [isDirty, onDirty]);
   useEffect(() => () => onDirty(false), [onDirty]);
-  async function save(event: FormEvent) {
+  async function save(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    const submitter = (event.nativeEvent as SubmitEvent).submitter;
+    const saveNext =
+      submitter instanceof HTMLElement && submitter.dataset.saveNext === "true";
     if (outcome === "excluded" && !exclusionReason.trim()) {
       setError("Enter a reason before excluding this episode.");
       setConflict(false);
@@ -99,7 +116,13 @@ function LabelForm({
           body: JSON.stringify(label),
         },
       );
-      onSaved(updated);
+      onSaved(updated, {
+        runId: run.id,
+        episodeId: episode.episode_id,
+        navigationVersion,
+        saveNext,
+        queueEpisodeIds,
+      });
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not save label");
       setConflict(err instanceof ApiError && err.status === 409);
@@ -130,6 +153,19 @@ function LabelForm({
         Only reviewed episodes contribute to outcome metrics. Assisted episodes
         count as failures; keep the actual failure reason when known.
       </p>
+      <details className="keyboard-help">
+        <summary>Keyboard shortcuts</summary>
+        <p>
+          <kbd>1</kbd> Success · <kbd>2</kbd> Failure · <kbd>3</kbd> Exclude
+        </p>
+        <p>
+          <kbd>j</kbd>/<kbd>k</kbd> Next/previous episode · <kbd>Ctrl</kbd>/
+          <kbd>⌘</kbd> + <kbd>Enter</kbd> Save &amp; next
+        </p>
+        <p className="muted">
+          Shortcuts pause while you type or use video controls.
+        </p>
+      </details>
       <fieldset disabled={saving}>
         <legend>Review decision</legend>
         <div className="segmented decision-options">
@@ -231,15 +267,25 @@ function LabelForm({
             </label>
           </>
         )}
-        <button className="primary" type="submit">
-          {saving
-            ? outcome === "excluded"
-              ? "Saving exclusion…"
-              : "Saving review…"
-            : outcome === "excluded"
-              ? "Save exclusion"
-              : "Save review"}
-        </button>
+        <div className="save-actions">
+          <button className="primary" type="submit">
+            {saving
+              ? outcome === "excluded"
+                ? "Saving exclusion…"
+                : "Saving review…"
+              : outcome === "excluded"
+                ? "Save exclusion"
+                : "Save review"}
+          </button>
+          <button
+            className="save-next"
+            type="submit"
+            data-save-next="true"
+            aria-label="Save & next: save review and go to next pending episode"
+          >
+            Save &amp; next
+          </button>
+        </div>
       </fieldset>
       {error && (
         <div className="error" role="alert">
@@ -257,7 +303,15 @@ function LabelForm({
     </form>
   );
 }
-function EpisodeReview({ run, episode }: { run: Detail; episode: Episode }) {
+function EpisodeReview({
+  run,
+  episode,
+  headingRef,
+}: {
+  run: Detail;
+  episode: Episode;
+  headingRef: React.RefObject<HTMLHeadingElement | null>;
+}) {
   const [trace, setTrace] = useState<Step[] | null>(null),
     [error, setError] = useState("");
   useEffect(() => {
@@ -282,7 +336,9 @@ function EpisodeReview({ run, episode }: { run: Detail; episode: Episode }) {
       <div className="review-title">
         <div>
           <div className="eyebrow">EPISODE EVIDENCE</div>
-          <h2>{episode.episode_id}</h2>
+          <h2 ref={headingRef} tabIndex={-1}>
+            {episode.episode_id}
+          </h2>
         </div>
         <span
           className={`status ${episode.review_status === "reviewed" ? (episode.success ? "success" : "failure") : episode.review_status === "excluded" ? "excluded" : "pending"}`}
@@ -341,9 +397,714 @@ function EpisodeReview({ run, episode }: { run: Detail; episode: Episode }) {
     </section>
   );
 }
+
+function contextValue(value: string | null | undefined) {
+  return value?.trim() || "Not recorded";
+}
+
+function mergeRunSnapshot<T extends Run>(
+  current: T | null | undefined,
+  incoming: T,
+): T {
+  if (!current || current.id !== incoming.id) return incoming;
+  const latestOutcome =
+    current.revision > incoming.revision ? current : incoming;
+  const currentContextRevision = current.experiment?.revision ?? -1;
+  const incomingContextRevision = incoming.experiment?.revision ?? -1;
+  const latestContext =
+    incomingContextRevision >= currentContextRevision
+      ? incoming.experiment
+      : current.experiment;
+  return { ...latestOutcome, experiment: latestContext ?? null } as T;
+}
+
+function ExperimentContext({
+  run,
+  baseline = false,
+}: {
+  run: Run;
+  baseline?: boolean;
+}) {
+  const experiment = run.experiment;
+  return (
+    <section
+      className="experiment-context panel"
+      aria-label={`${baseline ? "Baseline" : "Current"} experiment context`}
+    >
+      <div className="section-heading">
+        <h3>{baseline ? "Baseline context" : "Experiment context"}</h3>
+        <span className="muted small">{run.id}</span>
+      </div>
+      {!experiment ? (
+        <p className="legacy-context" role="status">
+          No experiment context sidecar is recorded for this run. It may be a
+          legacy run.
+        </p>
+      ) : (
+        <>
+          <dl className="human-context">
+            <div>
+              <dt>Name</dt>
+              <dd>{contextValue(experiment.name)}</dd>
+            </div>
+            <div>
+              <dt>Hypothesis</dt>
+              <dd>{contextValue(experiment.hypothesis)}</dd>
+            </div>
+            <div>
+              <dt>What changed</dt>
+              <dd>{contextValue(experiment.what_changed)}</dd>
+            </div>
+          </dl>
+          <details className="context-provenance">
+            <summary>Protocol, data, checkpoint, overrides, and links</summary>
+            <dl>
+              <div>
+                <dt>Task</dt>
+                <dd>
+                  {contextValue(experiment.task.id)} ·{" "}
+                  {contextValue(experiment.task.version)}
+                </dd>
+              </div>
+              <div>
+                <dt>Protocol</dt>
+                <dd>
+                  {contextValue(experiment.protocol.id)} ·{" "}
+                  {contextValue(experiment.protocol.version)}
+                </dd>
+              </div>
+              <div>
+                <dt>Dataset</dt>
+                <dd>
+                  {contextValue(experiment.dataset.id)} ·{" "}
+                  {contextValue(experiment.dataset.revision)}
+                </dd>
+              </div>
+              <div>
+                <dt>Checkpoint</dt>
+                <dd>{contextValue(experiment.checkpoint.identity)}</dd>
+              </div>
+              <div>
+                <dt>Source config hash</dt>
+                <dd className="mono">
+                  {String(run.manifest.config_hash || "Not recorded")}
+                </dd>
+              </div>
+            </dl>
+            <div className="context-json">
+              <strong>Effective overrides</strong>
+              <pre>
+                {JSON.stringify(experiment.effective_overrides, null, 2)}
+              </pre>
+            </div>
+            <div className="context-links">
+              <strong>Evidence links</strong>
+              {experiment.evidence_links.length ? (
+                <ul>
+                  {experiment.evidence_links.map((link) => (
+                    <li key={`${link.label}:${link.url}`}>
+                      <a href={link.url} target="_blank" rel="noreferrer">
+                        {link.label}
+                      </a>
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <p className="muted small">No evidence links recorded.</p>
+              )}
+            </div>
+          </details>
+        </>
+      )}
+    </section>
+  );
+}
+
+function differenceLabel(value: unknown) {
+  if (value === null || value === undefined) return "Not recorded";
+  return typeof value === "string" ? value : JSON.stringify(value);
+}
+
+function deltaRateText(value: number | null) {
+  return value === null
+    ? "— (no reviewed denominator)"
+    : `${value >= 0 ? "+" : ""}${(value * 100).toFixed(1)} pp`;
+}
+
+function FailureComparison({
+  candidate,
+  baseline,
+  delta,
+}: {
+  candidate: ComparisonResult["candidate"];
+  baseline: ComparisonResult["baseline"];
+  delta: ComparisonResult["delta"];
+}) {
+  const categories = Array.from(
+    new Set([
+      ...Object.keys(candidate.failure_category_counts),
+      ...Object.keys(baseline.failure_category_counts),
+    ]),
+  ).sort();
+  const candidateFailures = Object.values(
+    candidate.failure_category_counts,
+  ).reduce((sum, count) => sum + count, 0);
+  const baselineFailures = Object.values(
+    baseline.failure_category_counts,
+  ).reduce((sum, count) => sum + count, 0);
+  return (
+    <section
+      className="failure-comparison"
+      aria-label="Failure category distributions"
+    >
+      <h4>Reviewed failure distribution</h4>
+      <p className="muted small">
+        Candidate: {candidateFailures} reviewed failures among{" "}
+        {candidate.reviewed_episodes} reviewed episodes. Baseline:{" "}
+        {baselineFailures} among {baseline.reviewed_episodes}.
+      </p>
+      {!categories.length ? (
+        <p className="muted small">
+          No reviewed failure categories in either run.
+        </p>
+      ) : (
+        <div className="comparison-table-wrap">
+          <table className="comparison-table">
+            <thead>
+              <tr>
+                <th scope="col">Failure category</th>
+                <th scope="col">Candidate</th>
+                <th scope="col">Baseline</th>
+                <th scope="col">Count difference</th>
+              </tr>
+            </thead>
+            <tbody>
+              {categories.map((category) => {
+                const candidateCount =
+                  candidate.failure_category_counts[category] || 0;
+                const baselineCount =
+                  baseline.failure_category_counts[category] || 0;
+                const difference = delta?.failure_category_counts[category];
+                return (
+                  <tr key={category}>
+                    <th scope="row">{category.replaceAll("_", " ")}</th>
+                    <td>
+                      {candidateCount} / {candidateFailures} reviewed failures
+                    </td>
+                    <td>
+                      {baselineCount} / {baselineFailures} reviewed failures
+                    </td>
+                    <td>
+                      {difference === undefined
+                        ? "Withheld"
+                        : `${difference >= 0 ? "+" : ""}${difference}`}
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </section>
+  );
+}
+
+function RunComparison({
+  candidate,
+  baseline,
+  selectionEpoch,
+}: {
+  candidate: Detail;
+  baseline: Run | undefined;
+  selectionEpoch: number;
+}) {
+  const [acknowledgedKey, setAcknowledgedKey] = useState("");
+  const [stored, setStored] = useState<{
+    key: string;
+    result: ComparisonResult;
+  }>();
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+  const [requestGeneration, setRequestGeneration] = useState(0);
+  const comparisonKey = baseline
+    ? `${candidate.id}:${candidate.revision}:${candidate.experiment?.revision ?? "legacy"}/${baseline.id}:${baseline.revision}:${baseline.experiment?.revision ?? "legacy"}/${selectionEpoch}`
+    : "";
+  const acknowledged = Boolean(
+    comparisonKey && acknowledgedKey === comparisonKey,
+  );
+  const current = stored?.key === comparisonKey ? stored.result : undefined;
+
+  useEffect(() => {
+    if (!baseline || !comparisonKey) {
+      setStored(undefined);
+      setError("");
+      return;
+    }
+    let active = true;
+    setLoading(true);
+    setError("");
+    setStored(undefined);
+    const query = acknowledged ? "?acknowledge_incompatible=1" : "";
+    request<ComparisonResult>(
+      `${runPath(candidate.id)}/compare/${encodeURIComponent(baseline.id)}${query}`,
+    )
+      .then((result) => {
+        if (!active) return;
+        if (
+          result.candidate_label_revision !== candidate.revision ||
+          result.baseline_label_revision !== baseline.revision ||
+          (result.candidate_context?.revision ?? null) !==
+            (candidate.experiment?.revision ?? null) ||
+          (result.baseline_context?.revision ?? null) !==
+            (baseline.experiment?.revision ?? null)
+        ) {
+          setError(
+            "Run labels or experiment context changed while the comparison was loading. Refresh the runs before comparing again.",
+          );
+          return;
+        }
+        setStored({ key: comparisonKey, result });
+      })
+      .catch((reason) => {
+        if (active)
+          setError(
+            reason instanceof Error ? reason.message : "Could not compare runs",
+          );
+      })
+      .finally(() => {
+        if (active) setLoading(false);
+      });
+    return () => {
+      active = false;
+    };
+  }, [
+    candidate.id,
+    candidate.revision,
+    baseline?.id,
+    baseline?.revision,
+    candidate.experiment?.revision,
+    baseline?.experiment?.revision,
+    comparisonKey,
+    acknowledged,
+    requestGeneration,
+  ]);
+
+  if (!baseline) return null;
+  const formatRate = (
+    summary: ComparisonResult["candidate"],
+    key: "success_rate" | "reviewed_rate" | "intervention_rate",
+  ) => {
+    const denominator =
+      key === "reviewed_rate" ? summary.episodes : summary.metric_episodes;
+    const denominatorLabel =
+      key === "reviewed_rate" ? "total episodes" : "reviewed episodes";
+    if (summary[key] === null) return `— (0 ${denominatorLabel}; no interval)`;
+    const interval = key === "success_rate" ? summary.success_rate_ci : null;
+    const uncertainty =
+      key !== "success_rate"
+        ? ""
+        : interval
+          ? `; 95% CI ${interval.map(percent).join("–")}`
+          : "; 95% CI unavailable";
+    return `${percent(summary[key]!)} (n=${denominator})${uncertainty}`;
+  };
+  const delta = current?.delta;
+  return (
+    <section className="run-comparison panel" aria-label="Baseline comparison">
+      <div className="section-heading">
+        <h3>Baseline comparison</h3>
+        <span className="muted small">
+          Descriptive outcomes; not a significance test
+        </span>
+      </div>
+      {loading && (
+        <p role="status" className="muted">
+          Loading comparison…
+        </p>
+      )}
+      {error && (
+        <div role="alert" className="error">
+          <p>{error}</p>
+          <button
+            type="button"
+            onClick={() => setRequestGeneration((value) => value + 1)}
+          >
+            Retry comparison
+          </button>
+        </div>
+      )}
+      {current && (
+        <>
+          <div
+            className={`compatibility compatibility-${current.compatibility.status}`}
+            role="status"
+            aria-label={`Compatibility: ${current.compatibility.status}`}
+          >
+            Compatibility: <strong>{current.compatibility.status}</strong>
+          </div>
+          {!!current.compatibility.reasons.length && (
+            <ul className="comparison-reasons">
+              {current.compatibility.reasons.map((reason) => (
+                <li key={reason}>{reason}</li>
+              ))}
+            </ul>
+          )}
+          {!!current.compatibility.advisories.length && (
+            <div className="comparison-advisories">
+              <strong>Context advisories</strong>
+              <ul>
+                {current.compatibility.advisories.map((advisory) => (
+                  <li key={advisory}>{advisory}</li>
+                ))}
+              </ul>
+              <p className="muted small">
+                Dataset, checkpoint, source configuration, and override
+                differences are descriptive advisories. Record evaluation
+                condition changes in the protocol version.
+              </p>
+            </div>
+          )}
+          {!!Object.keys(current.compatibility.differences).length && (
+            <details className="comparison-differences">
+              <summary>Context differences</summary>
+              <dl>
+                {Object.entries(current.compatibility.differences).map(
+                  ([key, values]) => (
+                    <div key={key}>
+                      <dt>{key}</dt>
+                      <dd>Candidate: {differenceLabel(values.candidate)}</dd>
+                      <dd>Baseline: {differenceLabel(values.baseline)}</dd>
+                    </div>
+                  ),
+                )}
+              </dl>
+            </details>
+          )}
+          <dl className="comparison-counts" aria-label="Run review counts">
+            <div>
+              <dt>Candidate episode counts</dt>
+              <dd>
+                {current.candidate.reviewed_episodes} reviewed ·{" "}
+                {current.candidate.pending_episodes} pending ·{" "}
+                {current.candidate.excluded_episodes} excluded /{" "}
+                {current.candidate.episodes} total
+              </dd>
+            </div>
+            <div>
+              <dt>Baseline episode counts</dt>
+              <dd>
+                {current.baseline.reviewed_episodes} reviewed ·{" "}
+                {current.baseline.pending_episodes} pending ·{" "}
+                {current.baseline.excluded_episodes} excluded /{" "}
+                {current.baseline.episodes} total
+              </dd>
+            </div>
+          </dl>
+          {current.compatibility.status !== "matched" && !acknowledged && (
+            <div className="compatibility-ack">
+              <p>
+                Outcome differences are withheld because required task or
+                protocol context is different or missing.
+              </p>
+              <button
+                type="button"
+                onClick={() => setAcknowledgedKey(comparisonKey)}
+              >
+                Acknowledge incompatible comparison and show descriptive delta
+              </button>
+            </div>
+          )}
+          {current && (
+            <>
+              <h4 className="comparison-delta-heading">
+                {delta
+                  ? "Descriptive outcome differences"
+                  : "Per-run outcome summaries"}
+              </h4>
+              <div className="comparison-table-wrap">
+                <table className="comparison-table">
+                  <thead>
+                    <tr>
+                      <th scope="col">Measure</th>
+                      <th scope="col">Candidate</th>
+                      <th scope="col">Baseline</th>
+                      <th scope="col">
+                        {delta ? "Candidate − baseline" : "Difference"}
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr>
+                      <th scope="row">Successes</th>
+                      <td>
+                        {current.candidate.successes} /{" "}
+                        {current.candidate.metric_episodes} reviewed
+                      </td>
+                      <td>
+                        {current.baseline.successes} /{" "}
+                        {current.baseline.metric_episodes} reviewed
+                      </td>
+                      <td>
+                        {delta
+                          ? `${delta.successes >= 0 ? "+" : ""}${delta.successes}`
+                          : "Withheld until acknowledged"}
+                      </td>
+                    </tr>
+                    <tr>
+                      <th scope="row">Success rate</th>
+                      <td>{formatRate(current.candidate, "success_rate")}</td>
+                      <td>{formatRate(current.baseline, "success_rate")}</td>
+                      <td>
+                        {delta
+                          ? deltaRateText(delta.success_rate)
+                          : "Withheld until acknowledged"}
+                      </td>
+                    </tr>
+                    <tr>
+                      <th scope="row">Decision coverage</th>
+                      <td>{formatRate(current.candidate, "reviewed_rate")}</td>
+                      <td>{formatRate(current.baseline, "reviewed_rate")}</td>
+                      <td>
+                        {delta
+                          ? deltaRateText(delta.reviewed_rate)
+                          : "Withheld until acknowledged"}
+                      </td>
+                    </tr>
+                    <tr>
+                      <th scope="row">Intervention rate</th>
+                      <td>
+                        {formatRate(current.candidate, "intervention_rate")}
+                      </td>
+                      <td>
+                        {formatRate(current.baseline, "intervention_rate")}
+                      </td>
+                      <td>
+                        {delta
+                          ? deltaRateText(delta.intervention_rate)
+                          : "Withheld until acknowledged"}
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+              {delta && (
+                <p className="muted small">
+                  Episodes are not paired by ID. Select representative evidence
+                  independently for each run below.
+                </p>
+              )}
+            </>
+          )}
+          <FailureComparison
+            candidate={current.candidate}
+            baseline={current.baseline}
+            delta={delta || null}
+          />
+        </>
+      )}
+    </section>
+  );
+}
+
+function RepresentativeEvidenceCard({
+  run,
+  episode,
+}: {
+  run: Detail;
+  episode: Episode;
+}) {
+  const [steps, setSteps] = useState<Step[] | null>(null);
+  const [error, setError] = useState("");
+  useEffect(() => {
+    let active = true;
+    setSteps(null);
+    setError("");
+    request<{ steps: Step[] }>(
+      `${episodePath(run.id, episode.episode_id)}/trace`,
+    )
+      .then((data) => {
+        if (active) setSteps(data.steps);
+      })
+      .catch((reason) => {
+        if (active)
+          setError(
+            reason instanceof Error ? reason.message : "Could not load trace",
+          );
+      });
+    return () => {
+      active = false;
+    };
+  }, [run.id, episode.episode_id]);
+  return (
+    <article className="representative-card">
+      <div className="representative-summary">
+        <strong>{episode.episode_id}</strong>
+        <span>
+          {episode.review_status === "reviewed"
+            ? "Reviewed"
+            : episode.review_status === "excluded"
+              ? "Excluded"
+              : "Pending review"}
+        </span>
+        <span>
+          {episode.review_status === "reviewed"
+            ? episode.effective_outcome.success
+              ? "Reviewed success"
+              : "Reviewed failure"
+            : episode.original_outcome.success
+              ? "Recorded success"
+              : "Recorded failure"}
+        </span>
+      </div>
+      <MediaEvidence
+        key={`${run.id}/${episode.episode_id}`}
+        runId={run.id}
+        episodeId={episode.episode_id}
+        steps={steps}
+        traceError={error}
+      />
+    </article>
+  );
+}
+
+function RepresentativeEvidenceComparison({
+  candidate,
+  baselineId,
+  baselineRevision,
+}: {
+  candidate: Detail;
+  baselineId: string;
+  baselineRevision: number;
+}) {
+  const [loadedBaseline, setLoadedBaseline] = useState<Detail | null>(null);
+  const [baselineError, setBaselineError] = useState("");
+  const [candidateEpisodeId, setCandidateEpisodeId] = useState("");
+  const [baselineEpisodeId, setBaselineEpisodeId] = useState("");
+  useEffect(() => {
+    setCandidateEpisodeId("");
+  }, [candidate.id]);
+  useEffect(() => {
+    if (!baselineId) {
+      setLoadedBaseline(null);
+      setBaselineEpisodeId("");
+      return;
+    }
+    let active = true;
+    setLoadedBaseline(null);
+    setBaselineError("");
+    setBaselineEpisodeId("");
+    request<Detail>(runPath(baselineId))
+      .then((data) => {
+        if (!active) return;
+        if (data.id !== baselineId || data.revision !== baselineRevision) {
+          setBaselineError(
+            "Baseline evidence changed while loading. Refresh the runs before selecting an episode.",
+          );
+          return;
+        }
+        setLoadedBaseline(data);
+      })
+      .catch((reason) => {
+        if (active)
+          setBaselineError(
+            reason instanceof Error
+              ? reason.message
+              : "Could not load baseline evidence",
+          );
+      });
+    return () => {
+      active = false;
+    };
+  }, [baselineId, baselineRevision]);
+  const baseline =
+    loadedBaseline?.id === baselineId &&
+    loadedBaseline.revision === baselineRevision
+      ? loadedBaseline
+      : null;
+  const candidateEpisode = candidate.episodes.find(
+    (item) => item.episode_id === candidateEpisodeId,
+  );
+  const baselineEpisode = baseline?.episodes.find(
+    (item) => item.episode_id === baselineEpisodeId,
+  );
+  if (!baselineId) return null;
+  return (
+    <section
+      className="representative-evidence panel"
+      aria-label="Representative episode evidence"
+    >
+      <div className="section-heading">
+        <h3>Representative episode evidence</h3>
+        <span className="muted small">Read only</span>
+      </div>
+      <p className="muted small">
+        Choose an episode independently for each run. Matching episode IDs do
+        not indicate paired trials.
+      </p>
+      <div className="representative-pickers">
+        <label>
+          Candidate representative episode
+          <select
+            aria-label="Candidate representative episode"
+            value={candidateEpisodeId}
+            onChange={(event) => setCandidateEpisodeId(event.target.value)}
+          >
+            <option value="">Choose a candidate episode</option>
+            {candidate.episodes.map((item) => (
+              <option key={item.episode_id} value={item.episode_id}>
+                {item.episode_id} · {item.review_status}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label>
+          Baseline representative episode
+          <select
+            aria-label="Baseline representative episode"
+            value={baselineEpisodeId}
+            onChange={(event) => setBaselineEpisodeId(event.target.value)}
+            disabled={!baseline}
+          >
+            <option value="">
+              {baseline
+                ? "Choose a baseline episode"
+                : baselineError || "Loading baseline episodes…"}
+            </option>
+            {baseline?.episodes.map((item) => (
+              <option key={item.episode_id} value={item.episode_id}>
+                {item.episode_id} · {item.review_status}
+              </option>
+            ))}
+          </select>
+        </label>
+      </div>
+      <div className="representative-cards">
+        {candidateEpisode && (
+          <RepresentativeEvidenceCard
+            key={`candidate:${candidate.id}:${candidateEpisode.episode_id}`}
+            run={candidate}
+            episode={candidateEpisode}
+          />
+        )}
+        {baseline && baselineEpisode && (
+          <RepresentativeEvidenceCard
+            key={`baseline:${baseline.id}:${baselineEpisode.episode_id}`}
+            run={baseline}
+            episode={baselineEpisode}
+          />
+        )}
+      </div>
+    </section>
+  );
+}
+
 export default function App() {
   const selectedRef = useRef("");
   const dirtyRef = useRef(false);
+  const navigationVersionRef = useRef(0);
+  const episodeIdRef = useRef("");
+  const focusEpisodeAfterNavigationRef = useRef(false);
   const updateDirty = useCallback((dirty: boolean) => {
     dirtyRef.current = dirty;
   }, []);
@@ -353,6 +1114,7 @@ export default function App() {
       !window.confirm("Discard the unsaved review changes?")
     )
       return;
+    navigationVersionRef.current += 1;
     action();
   }
   useEffect(() => {
@@ -377,9 +1139,11 @@ export default function App() {
     [filter, setFilter] = useState("all"),
     [episodeId, setEpisodeId] = useState(""),
     [baselineId, setBaselineId] = useState(""),
+    [comparisonSelectionEpoch, setComparisonSelectionEpoch] = useState(0),
     [reload, setReload] = useState(0),
     [notice, setNotice] = useState("");
   selectedRef.current = selected;
+  episodeIdRef.current = episodeId;
   async function loadRuns() {
     setLoading(true);
     setError("");
@@ -388,9 +1152,7 @@ export default function App() {
       setRuns((current) =>
         data.runs.map((next) => {
           const previous = current.find((r) => r.id === next.id);
-          return previous && previous.revision > next.revision
-            ? previous
-            : next;
+          return mergeRunSnapshot(previous, next);
         }),
       );
       setSelected((value) =>
@@ -417,19 +1179,13 @@ export default function App() {
     let active = true;
     setDetailLoading(true);
     setDetailError("");
-    setRun(null);
+    setRun((current) => (current?.id === selected ? current : null));
     setNotice("");
     setFilter("all");
     request<Detail>(runPath(selected))
       .then((data) => {
         if (active) {
-          setRun((current) =>
-            current &&
-            current.id === data.id &&
-            current.revision > data.revision
-              ? current
-              : data,
-          );
+          setRun((current) => mergeRunSnapshot(current, data));
           setEpisodeId(data.episodes[0]?.episode_id || "");
         }
       })
@@ -443,21 +1199,75 @@ export default function App() {
       active = false;
     };
   }, [selected, reload]);
-  function saved(updated: Detail) {
+  function saved(
+    updated: Detail,
+    context: {
+      runId: string;
+      episodeId: string;
+      navigationVersion: number;
+      saveNext: boolean;
+      queueEpisodeIds: string[];
+    },
+  ) {
     setRuns((items) =>
       items.map((r) =>
-        r.id === updated.id && r.revision <= updated.revision ? updated : r,
+        r.id === updated.id ? mergeRunSnapshot(r, updated) : r,
       ),
     );
     if (selectedRef.current === updated.id) {
-      setRun((current) =>
-        current &&
-        current.id === updated.id &&
-        current.revision > updated.revision
-          ? current
-          : updated,
-      );
-      setNotice("Review saved. Metrics refreshed.");
+      setRun((current) => mergeRunSnapshot(current, updated));
+      const canAdvance =
+        context.saveNext &&
+        run?.id === updated.id &&
+        run.revision <= updated.revision &&
+        selectedRef.current === context.runId &&
+        episodeIdRef.current === context.episodeId &&
+        navigationVersionRef.current === context.navigationVersion;
+      if (canAdvance) {
+        const query = episodeSearch.trim().toLowerCase();
+        const matchesSearch = (candidate: Episode) =>
+          !query ||
+          candidate.episode_id.toLowerCase().includes(query) ||
+          (candidate.failure_category || "").toLowerCase().includes(query) ||
+          (candidate.annotation.notes || "").toLowerCase().includes(query) ||
+          (candidate.annotation.exclusion_reason || "")
+            .toLowerCase()
+            .includes(query);
+        const matchesFilter = (candidate: Episode) =>
+          filter === "all" ||
+          (filter === "unlabelled" &&
+            candidate.review_status === "provisional") ||
+          (filter === "reviewed" && candidate.review_status === "reviewed") ||
+          (filter === "excluded" && candidate.review_status === "excluded") ||
+          (filter === "success" &&
+            candidate.review_status === "reviewed" &&
+            candidate.success) ||
+          (filter === "failure" &&
+            candidate.review_status === "reviewed" &&
+            !candidate.success);
+        const oldIndex = context.queueEpisodeIds.indexOf(context.episodeId);
+        const candidates = updated.episodes.filter(
+          (item) =>
+            item.review_status === "provisional" &&
+            matchesFilter(item) &&
+            matchesSearch(item),
+        );
+        const next = candidates.find((item) => {
+          const index = context.queueEpisodeIds.indexOf(item.episode_id);
+          return oldIndex < 0 || index > oldIndex;
+        });
+        navigationVersionRef.current += 1;
+        setNotice(
+          next
+            ? "Review saved. Opened the next pending episode."
+            : "Review saved. No later pending episodes in this filtered queue.",
+        );
+        focusEpisodeAfterNavigationRef.current = Boolean(next);
+        episodeIdRef.current = next?.episode_id || "";
+        setEpisodeId(next?.episode_id || "");
+      } else {
+        setNotice("Review saved. Metrics refreshed.");
+      }
     }
   }
   const baseline = runs.find((r) => r.id === baselineId && r.id !== selected);
@@ -471,7 +1281,9 @@ export default function App() {
         (filter === "success" && e.review_status === "reviewed" && e.success) ||
         (filter === "failure" && e.review_status === "reviewed" && !e.success),
     ) || [];
-  const episode = visible.find((e) => e.episode_id === episodeId) || visible[0];
+  const episode = episodeId
+    ? visible.find((e) => e.episode_id === episodeId) || visible[0]
+    : undefined;
   const queuedEpisodes = visible.filter((e) => {
     const query = episodeSearch.trim().toLowerCase();
     return (
@@ -482,6 +1294,65 @@ export default function App() {
       (e.annotation.exclusion_reason || "").toLowerCase().includes(query)
     );
   });
+  const evidenceHeadingRef = useRef<HTMLHeadingElement>(null);
+  useEffect(() => {
+    if (episode && focusEpisodeAfterNavigationRef.current) {
+      evidenceHeadingRef.current?.focus();
+      focusEpisodeAfterNavigationRef.current = false;
+    }
+  }, [episode?.episode_id]);
+  useEffect(() => {
+    const isEditableOrMediaControl = (target: EventTarget | null) => {
+      if (!(target instanceof HTMLElement)) return false;
+      return Boolean(
+        target.closest(
+          "button, [role='button'], a[href], summary, input, textarea, select, [contenteditable]:not([contenteditable='false']), video, audio, [role='slider']",
+        ),
+      );
+    };
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (isEditableOrMediaControl(event.target)) return;
+      if ((event.ctrlKey || event.metaKey) && event.key === "Enter") {
+        const form = document.querySelector<HTMLFormElement>(".label-form");
+        const button = form?.querySelector<HTMLButtonElement>(
+          "[data-save-next='true']",
+        );
+        if (form && button && !button.disabled) {
+          event.preventDefault();
+          form.requestSubmit(button);
+        }
+        return;
+      }
+      if (event.altKey || event.ctrlKey || event.metaKey || event.shiftKey)
+        return;
+      if (["1", "2", "3"].includes(event.key)) {
+        const option = document.querySelector<HTMLInputElement>(
+          `input[name='outcome'][value='${event.key === "1" ? "success" : event.key === "2" ? "failure" : "excluded"}']`,
+        );
+        if (option && !option.disabled) {
+          event.preventDefault();
+          option.click();
+        }
+        return;
+      }
+      if (event.key !== "j" && event.key !== "k") return;
+      const currentIndex = queuedEpisodes.findIndex(
+        (item) => item.episode_id === episode?.episode_id,
+      );
+      const nextIndex = currentIndex + (event.key === "j" ? 1 : -1);
+      const target = queuedEpisodes[nextIndex];
+      if (target && target.episode_id !== episode?.episode_id) {
+        event.preventDefault();
+        navigate(() => {
+          focusEpisodeAfterNavigationRef.current = true;
+          setEpisodeId(target.episode_id);
+          setNotice("");
+        });
+      }
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [queuedEpisodes, episode?.episode_id, navigate]);
   return (
     <div className="app">
       <aside className="sidebar">
@@ -532,6 +1403,7 @@ export default function App() {
                   if (selected !== r.id)
                     navigate(() => {
                       setSelected(r.id);
+                      setComparisonSelectionEpoch((epoch) => epoch + 1);
                       setNotice("");
                     });
                 }}
@@ -642,6 +1514,10 @@ export default function App() {
                     : "The manifest does not establish physical execution. Interpret outcomes in that context."}
                 </span>
               </div>
+              <div className="run-context-grid">
+                <ExperimentContext run={run} />
+                {baseline && <ExperimentContext run={baseline} baseline />}
+              </div>
               <details className="run-overview">
                 <summary>
                   <span className="overview-title">Run overview</span>
@@ -658,7 +1534,10 @@ export default function App() {
                     <select
                       aria-label="Baseline experiment"
                       value={baselineId === selected ? "" : baselineId}
-                      onChange={(e) => setBaselineId(e.target.value)}
+                      onChange={(e) => {
+                        setBaselineId(e.target.value);
+                        setComparisonSelectionEpoch((epoch) => epoch + 1);
+                      }}
                     >
                       <option value="">No baseline</option>
                       {runs
@@ -690,20 +1569,6 @@ export default function App() {
                           95% CI{" "}
                           {run.summary.success_rate_ci.map(percent).join(" – ")}
                         </small>
-                      )}
-                    {baseline &&
-                      run.summary.metric_episodes > 0 &&
-                      baseline.summary.metric_episodes > 0 &&
-                      run.summary.success_rate !== null &&
-                      baseline.summary.success_rate !== null && (
-                        <em>
-                          {(
-                            (run.summary.success_rate -
-                              baseline.summary.success_rate) *
-                            100
-                          ).toFixed(1)}{" "}
-                          pp vs baseline
-                        </em>
                       )}
                   </div>
                   <div className="kpi">
@@ -748,47 +1613,11 @@ export default function App() {
                     </div>
                   </div>
                 </div>
-                {baseline && (
-                  <div className="comparison">
-                    <div>
-                      <div className="eyebrow">BASELINE COMPARISON</div>
-                      <h3>{baseline.id}</h3>
-                      <span className="pill amber">{provenance(baseline)}</span>
-                    </div>
-                    <dl>
-                      <div>
-                        <dt>Success rate</dt>
-                        <dd>
-                          {baseline.summary.metric_episodes > 0 &&
-                          baseline.summary.success_rate !== null
-                            ? percent(baseline.summary.success_rate)
-                            : "—"}
-                        </dd>
-                      </div>
-                      <div>
-                        <dt>Completion</dt>
-                        <dd>
-                          {baseline.summary.median_completion_time_s !== null
-                            ? `${baseline.summary.median_completion_time_s.toFixed(2)}s`
-                            : "—"}
-                        </dd>
-                      </div>
-                      <div>
-                        <dt>Interventions</dt>
-                        <dd>
-                          {baseline.summary.metric_episodes > 0 &&
-                          baseline.summary.intervention_rate !== null
-                            ? percent(baseline.summary.intervention_rate)
-                            : "—"}
-                        </dd>
-                      </div>
-                    </dl>
-                    <p className="muted small">
-                      Descriptive comparison only. Confirm the same task and
-                      protocol before interpreting differences.
-                    </p>
-                  </div>
-                )}
+                <RunComparison
+                  candidate={run}
+                  baseline={baseline}
+                  selectionEpoch={comparisonSelectionEpoch}
+                />
                 <div className="insights">
                   <section className="panel failures">
                     <div className="section-heading">
@@ -868,6 +1697,13 @@ export default function App() {
                   </section>
                 </div>
               </details>
+              {baseline && (
+                <RepresentativeEvidenceComparison
+                  candidate={run}
+                  baselineId={baseline.id}
+                  baselineRevision={baseline.revision}
+                />
+              )}
               <div className="episodes-heading">
                 <div>
                   <h2>Episode workspace</h2>
@@ -891,6 +1727,7 @@ export default function App() {
                     <button
                       key={value}
                       className={filter === value ? "selected" : ""}
+                      aria-pressed={filter === value}
                       onClick={() => {
                         if (filter !== value) navigate(() => setFilter(value));
                       }}
@@ -917,7 +1754,10 @@ export default function App() {
                       aria-label="Search episodes"
                       placeholder="Find an episode…"
                       value={episodeSearch}
-                      onChange={(e) => setEpisodeSearch(e.target.value)}
+                      onChange={(e) => {
+                        navigationVersionRef.current += 1;
+                        setEpisodeSearch(e.target.value);
+                      }}
                     />
                   </label>
                   {episode &&
@@ -934,6 +1774,7 @@ export default function App() {
                     {queuedEpisodes.map((e, index) => (
                       <button
                         className={`episode-row ${episode?.episode_id === e.episode_id ? "selected" : ""}`}
+                        data-episode-id={e.episode_id}
                         key={e.episode_id}
                         aria-current={
                           episode?.episode_id === e.episode_id
@@ -994,7 +1835,11 @@ export default function App() {
                   </div>
                 </section>
                 {episode ? (
-                  <EpisodeReview run={run} episode={episode} />
+                  <EpisodeReview
+                    run={run}
+                    episode={episode}
+                    headingRef={evidenceHeadingRef}
+                  />
                 ) : (
                   <div className="panel empty-inline evidence-empty">
                     Select an episode to inspect its evidence.
@@ -1008,6 +1853,10 @@ export default function App() {
                     onSaved={saved}
                     onReload={() => navigate(() => setReload((r) => r + 1))}
                     onDirty={updateDirty}
+                    navigationVersion={navigationVersionRef.current}
+                    queueEpisodeIds={queuedEpisodes.map(
+                      (item) => item.episode_id,
+                    )}
                   />
                 ) : (
                   <div className="panel empty-inline form-empty">

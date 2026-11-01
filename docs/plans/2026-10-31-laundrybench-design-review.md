@@ -61,6 +61,30 @@ recorder, manifest, taxonomy, and config loading. Still to reconcile:
 
 Status: accepted 2026-10-31. D1 applied to both diagrams; D2 and D3 applied to Tasks 4 and 6; D4 to D7 are Tasks 10 to 13 (Phase B).
 
+## Results application follow-up (2026-11-01)
+
+The results application gained a separate run-context and review-workflow
+increment. These issues extend the operator surface and do not change the
+robot-control boundary. The JWA-30/31 backend was merged in PR #31 with green
+backend CI. PR #32 carries the frontend and browser-acceptance integration.
+Local validation for PR #32 passed: `make check` (185 Python tests), the
+frontend suite (38 tests), and the production build. Its first browser CI run
+passed 10 of 12 tests; contrast issues and a video accessible-name selector
+were fixed, and the rerun is tracked on [PR #32 checks](https://github.com/chungtseng96/embodied-ai-lab/pull/32/checks).
+
+| Issue | Scope | Current state |
+| --- | --- | --- |
+| JWA-30 | Versioned `experiment.json` sidecar and metadata CLI; expose context with run details | Backend merged in PR #31; backend CI green. Frontend context panel in PR #32; local suite/build passed. |
+| JWA-31 | Compare reviewed outcomes only when task/protocol identity and versions are compatible; explicit acknowledgment retains incompatibility reasons | Backend guard merged in PR #31; backend CI green. Frontend comparison/acknowledgment in PR #32; local suite/build passed. |
+| JWA-32 | Keyboard controls for outcome selection, episode navigation, and save-and-next | Implemented in PR #32; local frontend suite/build passed; browser CI rerun tracked on PR #32 checks. |
+| JWA-37 | Real-backend Playwright browser acceptance suite and GitHub Actions workflow | Implemented in PR #32. First CI attempt passed 10/12; contrast and video-selector failures were fixed. See PR #32 checks for the rerun. |
+
+See [experiment context and run comparisons](../architecture/experiment-context.md),
+[browser acceptance](../architecture/browser-acceptance.md), and the
+[results application guide](../architecture/results-application.md) for the
+operator-facing contracts. The PR #32 checks page is the source for current
+browser CI status; the first attempt is not represented as passing.
+
 ## What is sound and should not change
 
 - LeRobot owns hardware, datasets, and policy mechanics; LaundryBench adapts at

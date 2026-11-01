@@ -29,6 +29,18 @@ update the issue when the task's commit lands.
 | 10 Quality gate | JWA-19 | 11 Summary + report | JWA-20 |
 | 12 Comparison + faulty fixture | JWA-21 | 13 Terminal view | JWA-22 |
 
+The results-application follow-up is tracked separately from the V1 contract
+hardening tasks: JWA-30 adds versioned run context, JWA-31 guards comparisons
+by task/protocol compatibility, JWA-32 adds keyboard review controls, and
+JWA-37 adds real-backend browser acceptance in CI. See the
+[design review follow-up](2026-10-31-laundrybench-design-review.md#results-application-follow-up-2026-11-01)
+and [experiment-context contract](../architecture/experiment-context.md).
+The JWA-30/31 backend merged in PR #31 with green backend CI. PR #32 carries the
+frontend and browser-acceptance integration. Local validation passed
+`make check` (185 Python tests), the frontend suite (38 tests), and the production
+build. The first PR #32 browser CI attempt passed 10 of 12 tests; contrast and
+video-selector failures were fixed, and the rerun is tracked on [PR #32 checks](https://github.com/chungtseng96/embodied-ai-lab/pull/32/checks).
+
 ## Global Constraints
 
 - `requires-python = ">=3.11"`; CI runs stock Python 3.11 with no LeRobot installed. Nothing under `src/laundrybench/` may import `lerobot`.
