@@ -1,5 +1,7 @@
 # Roadmap
 
+Execution detail lives in [`docs/plans/2026-10-31-laundrybench-v1-implementation.md`](docs/plans/2026-10-31-laundrybench-v1-implementation.md); this file tracks milestones only.
+
 ## Phase 0 — Foundations
 
 - [x] Define V1 benchmark: laundry sorting
@@ -18,18 +20,8 @@
 - [x] Add mock robot/policy
 - [x] Add evaluation runner and metrics
 - [x] Add structured episode logging
-- [ ] Add step-level episode traces
-- [ ] Add simple local report generation
-
-## Phase 1.5 — Evaluation platform vertical slice
-
-- [ ] Define experiment and condition manifest
-- [ ] Define episode/artifact contract
-- [ ] Add baseline-versus-candidate comparison
-- [ ] Add initial failure taxonomy
-- [ ] Add dataset and sensor-quality checks
-- [ ] Add deterministic failure-injection tests
-- [ ] Document local artifact layout and reproducibility rules
+- [x] Harden software contracts before hardware (see plan)
+- [x] Add simple local report generation
 
 ## Phase 2 — Hardware bring-up
 
@@ -43,7 +35,7 @@
 ## Phase 3 — LaundryBench baseline
 
 - [ ] Record first demonstrations
-- [ ] Train first baseline policy through LeRobot
+- [ ] Train baseline policy
 - [ ] Run fixed evaluation protocol
 - [ ] Log failures by category
 - [ ] Publish baseline results
@@ -51,7 +43,7 @@
 ## Phase 4 — Improvement loop
 
 - [ ] Choose one dominant failure mode
-- [ ] Add targeted demonstrations or a model/config change
+- [ ] Add targeted data or model/config change
 - [ ] Re-run the same evaluation
 - [ ] Compare baseline vs candidate
 - [ ] Document result honestly, including negative results
@@ -59,7 +51,6 @@
 ## Future
 
 - SmolVLA / VLA comparison
-- Simulation backend and sim-to-real experiments
 - More clothing categories
 - Clutter and overlap
 - Second camera

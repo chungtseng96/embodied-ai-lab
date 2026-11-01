@@ -1,8 +1,8 @@
-# ADR 004 — Go Deep on Evaluation and Failure-Driven Data Improvement
+# ADR 005 — Go Deep on Evaluation and Failure-Driven Data Improvement
 
 ## Status
 
-Accepted
+Proposed direction, reconciled with completed mock V1 on 2026-11-01.
 
 ## Context
 
@@ -79,8 +79,8 @@ LaundryBench will reuse:
 
 - The first useful result may be an imperfect policy rather than a novel model.
 - Human labeling and evaluation protocol design require discipline.
-- A good platform needs richer traces and metadata than the current final-result
-  JSONL logger provides.
+- Rich traces and metadata increase the evidence surface to maintain; the mock
+  V1 now records per-step traces, and physical media integration remains pending.
 
 ## Revisit this decision when
 

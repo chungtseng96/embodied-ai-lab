@@ -22,3 +22,7 @@ jobs:
         run: python -m ruff check .
       - name: Test
         run: python -m pytest
+      - name: Smoke-test scripts
+        run: |
+          python -m compileall -q scripts
+          python scripts/check_host_setup.py

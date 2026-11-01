@@ -1,5 +1,7 @@
 # LaundryBench Evaluation Platform Architecture
 
+**Status:** Proposed long-term direction; current mock implementation is described in [the as-built diagram](diagrams/laundrybench-v1-as-built.svg). Hardware, media capture, sensor-quality checks, and targeted-data collection remain future work.
+
 ## Purpose
 
 LaundryBench is a physical laundry-sorting benchmark and a small evaluation
@@ -111,7 +113,7 @@ Diffusion Policy, or a VLA.
 
 ### 4. Episode recorder
 
-The current final-result logger should grow into a step-level recorder.
+The mock implementation records step-level traces. Physical camera and media capture remain pending.
 
 An episode should contain:
 
@@ -148,19 +150,23 @@ Checks should produce machine-readable results and a human-readable report.
 
 ### 6. Outcome labeling and failure taxonomy
 
-Success is not enough for LaundryBench. The first taxonomy should stay small
-and observable:
+The current canonical failure categories are defined by `FailureCategory` in
+`projects/laundrybench/src/laundrybench/types.py`:
 
-- `success`
 - `missed_grasp`
 - `grasp_lost`
 - `wrong_object`
-- `wrong_destination`
-- `dropped_object`
+- `dropped`
+- `missed_basket`
 - `timeout`
-- `human_intervention`
-- `safety_stop`
-- `other_or_unknown`
+- `intervention`
+- `hardware_fault`
+- `frozen_camera`
+- `unspecified`
+
+Success is a separate `EpisodeResult.success` boolean; successful episodes have
+no failure category. Proposed additions must first update the shared enum and
+its validation/tests rather than introduce aliases in reports or labels.
 
 Labels should distinguish what was observed from what is inferred. For
 example, `missed_grasp` can be a human label even if the system cannot yet
@@ -230,7 +236,7 @@ format.
 
 ### Contract tests
 
-- every robot backend satisfies reset/observe/apply/success behavior
+- every robot backend satisfies reset/observe/apply/stop behavior, with outcomes owned by SuccessJudge
 - every policy adapter accepts the shared observation and returns an action
 - every episode recorder emits a valid episode record
 

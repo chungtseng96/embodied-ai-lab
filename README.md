@@ -6,15 +6,6 @@ A hands-on learning and portfolio repository for building practical understandin
 
 Teach an SO-101 robot to identify, pick up, and sort simple laundry items, then build the surrounding software for data collection, policy execution, evaluation, observability, and iteration.
 
-The deep engineering focus is a **policy-agnostic evaluation and
-failure-driven data platform**. LaundryBench will use one working policy to
-make the loop physical, while owning the protocols, traces, quality checks,
-failure analysis, comparison reports, and targeted-data workflow around it.
-
-See the [evaluation platform architecture](docs/architecture/evaluation-platform.md)
-and [ADR 004](docs/architecture/decisions/004-evaluation-and-data-platform-focus.md)
-for the decision and initial design.
-
 The portfolio goal is not just **"make the robot move."** It is to demonstrate the full improvement loop:
 
 ```text
@@ -33,6 +24,11 @@ robot experience
  targeted change
       └──────────────→ repeat
 ```
+
+The engineering focus is a policy-agnostic evaluation and failure-driven data platform.
+See the [platform direction](docs/architecture/evaluation-platform.md) and
+[ADR 005](docs/architecture/decisions/005-evaluation-and-data-platform-focus.md).
+The mock loop validates software contracts; physical results require real robot evaluation.
 
 ## Repository map
 
@@ -77,18 +73,29 @@ embodied-ai-lab/
 - External USB camera ordered
 - Mock robot/policy architecture in place
 - Evaluation runner, metrics, and structured logging in place
-- Evaluation-platform direction and initial architecture documented
 - Physical LeRobot integration intentionally waits for hardware bring-up
 
 ## Quick start: mock software loop
 
+`make check` needs Python 3.11+. Create the virtual environment once; `make`
+then uses `.venv/bin/python` by default:
+
 ```bash
-make install
-make test
+python3.11 -m venv .venv && .venv/bin/python -m pip install -e "projects/laundrybench[dev]"
+make check
 make demo
 ```
 
 The mock implementation exists only to exercise the software boundaries before the physical robot arrives. Mock results are **not** robot performance claims.
+
+## Engineering workflow
+
+The project uses a script- and configuration-driven workflow designed for
+local development, a nearby robot computer, and cloud GPU training. Read the
+[robot-learning development environment](docs/architecture/robot-learning-development-environment.md)
+and the [SO-101 readiness plan](docs/plans/so101-readiness.md) before adding
+hardware or training code. Repository and agent conventions live in
+[`AGENTS.md`](AGENTS.md) and `skills/`.
 
 ## Design principles
 
@@ -96,6 +103,4 @@ The mock implementation exists only to exercise the software boundaries before t
 2. Keep software boundaries reusable.
 3. Reuse LeRobot instead of rebuilding hardware/model plumbing unnecessarily.
 4. Treat experiments and failures as first-class artifacts.
-5. Go deep on evaluation and data improvement; reuse policy and hardware
-   plumbing where practical.
-6. Never present synthetic/mock results as physical robot results.
+5. Never present synthetic/mock results as physical robot results.

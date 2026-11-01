@@ -17,5 +17,5 @@ class Robot(Protocol):
     def apply(self, action: Action) -> None:
         ...
 
-    def task_success(self) -> bool:
+    def stop(self) -> None:
         ...
