@@ -6,12 +6,16 @@ on:
     paths:
       - ".github/workflows/lerobot-compat.yml"
       - "projects/laundrybench/pyproject.toml"
+      - "projects/laundrybench/scripts/check_lerobot.py"
+      - "projects/laundrybench/tests/test_check_lerobot.py"
       - "projects/laundrybench/src/laundrybench/policies/act.py"
       - "projects/laundrybench/tests/optional/test_lerobot_act_smoke.py"
   pull_request:
     paths:
       - ".github/workflows/lerobot-compat.yml"
       - "projects/laundrybench/pyproject.toml"
+      - "projects/laundrybench/scripts/check_lerobot.py"
+      - "projects/laundrybench/tests/test_check_lerobot.py"
       - "projects/laundrybench/src/laundrybench/policies/act.py"
       - "projects/laundrybench/tests/optional/test_lerobot_act_smoke.py"
   workflow_dispatch:
@@ -69,6 +73,8 @@ jobs:
           print(f"torchvision={torchvision.__version__}")
           print(f"torchcodec={version('torchcodec')}")
           PY
+      - name: Run read-only LeRobot environment preflight
+        run: python projects/laundrybench/scripts/check_lerobot.py
       - name: Run actual LeRobot ACT checkpoint and adapter smoke
         run: >-
           python -m pytest
