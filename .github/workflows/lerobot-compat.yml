@@ -35,6 +35,8 @@ jobs:
           python-version: "3.12"
           cache: pip
           cache-dependency-path: projects/laundrybench/pyproject.toml
+      - name: Install FFmpeg for LeRobot video decoding
+        run: sudo apt-get update && sudo apt-get install -y ffmpeg
       - name: Install pinned CPU PyTorch wheels
         run: >-
           python -m pip install

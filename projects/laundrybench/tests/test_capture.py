@@ -182,7 +182,10 @@ def test_invalid_frame_and_duplicate_timestamps_stop_encoder_and_leave_diagnosti
     assert not (tmp_path / "media" / "episode-bad-frame" / "media.json").exists()
 
 
-def test_start_failure_does_not_leave_encoder_or_success_manifest(tmp_path: Path) -> None:
+def test_start_failure_does_not_leave_encoder_or_success_manifest(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr("laundrybench.evaluation.capture.shutil.which", lambda _: "/fake/ffmpeg")
     def fail_to_spawn(*args, **kwargs):
         raise OSError("synthetic ffmpeg launch failure")
 
