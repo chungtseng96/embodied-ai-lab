@@ -14,7 +14,7 @@ from laundrybench.observability.logger import JsonlEpisodeLogger, JsonlStepLogge
 from laundrybench.observability.manifest import RunManifest, write_manifest
 from laundrybench.policies.base import Policy
 from laundrybench.robot.base import Robot
-from laundrybench.types import EpisodeResult
+from laundrybench.types import Action, EpisodeResult, Observation
 
 
 def run_experiment(
@@ -29,6 +29,10 @@ def run_experiment(
     timeout_s: float,
     clock: Callable[[], float] = time.perf_counter,
     sleep: Callable[[float], None] = time.sleep,
+    on_observation: Callable[[str, int, Observation], None] | None = None,
+    on_apply: Callable[[str, int, Observation, Action], None] | None = None,
+    on_episode_complete: Callable[[EpisodeResult], None] | None = None,
+    refresh_observation_before_action: bool = False,
 ) -> list[EpisodeResult]:
     """Run ``episodes`` episodes and write the experiment directory contract.
 
@@ -58,10 +62,15 @@ def run_experiment(
             clock=clock,
             sleep=sleep,
             episode_id=f"{manifest.experiment_id}-{index:03d}",
+            on_observation=on_observation,
             on_step=step_logger.log,
+            on_apply=on_apply,
+            refresh_observation_before_action=refresh_observation_before_action,
         )
         logger.log(result)
         results.append(result)
+        if on_episode_complete is not None:
+            on_episode_complete(result)
 
     steps_by_episode: dict[str, list[dict]] = defaultdict(list)
     if steps_path.exists():

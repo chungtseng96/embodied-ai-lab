@@ -2,19 +2,18 @@
 
 **Purpose:** bring your already-calibrated SO-101 and installed LeRobot environment through a safe first home session, then run repeatable demonstrations, ACT training, rollout, evidence review, and targeted iteration without confusing native LeRobot artifacts with LaundryBench runs.
 
-**Current capability in one sentence:** LaundryBench's mock evaluation, manual-review UI, reviewed-only metrics, comparisons, and synthetic showcase work today; direct LeRobot can record and train on hardware independently, but LaundryBench's `record.py`, `train.py`, and `run_policy.py` are fail-fast stubs and there is no ACT policy bridge or physical episode import path yet.
+**Current capability in one sentence:** LaundryBench now has a dry-run-first LeRobot recorder, strict ACT training/provenance wrapper, supervised ACT policy adapter, bounded SO-101 rollout, camera evidence capture, and UI review/metrics path; software integration is implemented, while calibrated-device compatibility, actual demonstrations/training, camera timing, and task success still require operator-run physical acceptance.
 
 ## Read this before the commands
 
-There are two usable workflows, with an integration gap between them:
+There are two usable workflows, and a software-wired physical feedback loop whose hardware acceptance remains open:
 
 | Workflow | Works now | Does not mean |
 |---|---|---|
-| LaundryBench software loop | `make demo`, `make web-demo`, UI labels, CLI/HTML summary, mock comparisons | Physical behavior, data collection, a trained checkpoint, or robot performance |
-| Native LeRobot loop | SO-101 teleoperation/recording, ACT train CLI, and policy rollout if the installed LeRobot build has compatible commands/dependencies and you supervise hardware | A LaundryBench run, manual-review record, LaundryBench metrics, or physical ACT integration |
-| Joined physical LaundryBench loop | Blocked until the physical acceptance/integration gates below are implemented and verified | Do not bridge the gap by labeling a mock run as physical or attaching unrelated footage to it |
+| LaundryBench mock loop | `make web-demo`, UI labels, CLI/HTML summary, synthetic comparisons | Physical behavior, training data, or robot performance |
+| Joined physical pipeline | `record.py` creates a supervised native dataset plus recording manifest; `train.py` validates/provenances ACT; `run_policy.py` creates a bounded physical LaundryBench run with capture artifacts and pending labels | A successful physical task or validated operation on your particular arms/camera/checkpoint; no robot or task run has been done as part of this guide |
 
-The current LaundryBench configs deliberately set `robot.implementation: mock`, null serial ports, and `camera.implementation: mock`. `scripts/evaluate.py` always instantiates `MockRobot` and `MockPolicy` (or a faulty mock). `projects/laundrybench/scripts/record.py`, `train.py`, and `run_policy.py` exit with “not wired yet.” An offline-tested SO-101 adapter exists in `src/laundrybench/robot/so101.py`, but it is not a physical evaluator or ACT policy adapter. Native LeRobot datasets and rollout evidence do not automatically become LaundryBench `manifest.yaml` / `episodes.jsonl` / `traces/steps.jsonl` runs.
+The mock-first `evaluation.yaml`, `robot.yaml`, and `camera.yaml` remain mock configs; `scripts/evaluate.py` is still the synthetic evaluation path. The explicit physical configs live separately in `recording.example.yaml`, `training.example.yaml`, and `rollout.example.yaml`. Unlike the earlier placeholder state, the wrappers now connect recording provenance, dataset/checkpoint contracts, ACT inference, physical episode records, camera media, and manual review. The remaining gate is real-device and real-task acceptance, not a software claim that the loop has already succeeded.
 
 ## Start from the right checkout
 
@@ -53,13 +52,14 @@ Hardware commands in this guide have an explicit **MOVES / RECORDS** marker. Rea
 Use this to stop at a useful checkpoint rather than assuming one evening includes cloud training and policy deployment.
 
 - [ ] Record exact laptop OS/CPU, Python, LeRobot, PyTorch, command paths, and `--help` outputs.
-- [ ] Run LaundryBench `make host-check PYTHON="$LB_PYTHON"` from its dedicated environment, `make lerobot-check PYTHON="$(command -v python)"` from the activated LeRobot environment, and the mock UI loop in an isolated temporary output directory.
+- [ ] Run LaundryBench `make host-check PYTHON="$LB_PYTHON"` from its dedicated environment, `make lerobot-check PYTHON="$(command -v python)"` from the activated LeRobot environment, and the mock UI loop. Run record/train/rollout dry-runs as each prerequisite becomes available: recording plan before capture, training plan only after a completed dataset/manifest, rollout plan only after a finalized local checkpoint.
 - [ ] Identify which physical arm is the **leader** and which is the **follower**; map both different serial ports and calibration IDs. If you do not have the leader arm or another calibrated control device, stop before teleoperation/recording: follower-only control is not enough for the demonstrated native recording command.
 - [ ] Enumerate the external camera without moving the robot; record index/path, supported resolution/FPS, and a fresh test frame. Put the camera above the table with the full object and destination visible.
 - [ ] Verify LeRobot IDs match existing calibration files; verify each port is stable; verify the chosen `front` camera key, index, resolution, and FPS can be opened. Do not run calibration.
 - [ ] With a clear work area and operator present, perform a brief, bounded **leader-driven teleoperation check** only after confirming roles, ports, IDs, and stop method. Stop at once if direction, tracking, or camera image is unexpected.
-- [ ] If teleoperation and camera pass, record only 2-3 labeled smoke demonstrations to a new local-only dataset. Inspect each episode before deciding whether to collect more.
-- [ ] Finish by writing down exact port/ID/camera/task values, versions, dataset path/ID, episode count, visible failures, and next blocker. Leave ACT cloud training and autonomous ACT rollout for a later scheduled session.
+- [ ] Only after preflight passes, use the supervised recorder for the first bounded leader-driven movement and capture 2 smoke demonstrations to a new local-only dataset. Stop immediately if direction, tracking, or camera image is unexpected; inspect every episode. Task outcomes remain pending until human review.
+- [ ] If a compatible Linux NVIDIA host/checkpoint is ready, run the bounded LaundryBench rollout under direct supervision, then label every episode in the UI and compare its reviewed-only metrics/report with a compatible baseline. Otherwise stop after recording and schedule training separately.
+- [ ] Finish by writing down exact port/ID/camera/task values, versions, dataset ID and digest, checkpoint, run path, reviewed/pending counts, failures, and the next acceptance gate.
 
 ## Phase 0 — establish the two environments
 
@@ -108,18 +108,27 @@ PY
 command -v lerobot-record
 command -v lerobot-train
 command -v lerobot-rollout
+command -v lerobot-dataset-viz
 lerobot-record --help > /tmp/lerobot-record-help.txt
 lerobot-train --help > /tmp/lerobot-train-help.txt
 lerobot-rollout --help > /tmp/lerobot-rollout-help.txt
 lerobot-find-port --help > /tmp/lerobot-find-port-help.txt
 lerobot-find-cameras --help > /tmp/lerobot-find-cameras-help.txt
+lerobot-dataset-viz --help > /tmp/lerobot-dataset-viz-help.txt
 ```
 
 If the version or command path is missing, activate the environment where LeRobot was installed instead of installing a second version over it. If `--help` fails because an optional dependency is missing, fix the environment before connecting the arms. New LeRobot releases move optional capabilities into install extras; the official installation guide maps robot scripts to `core_scripts`, model training to `training`, cameras/video to their required extras, and SO-101 motor support to Feetech. Do not assume `pip install lerobot` alone supplied all hardware and training extras.
 
 Record the `lerobot` package version and command help text with the experiment note. Some CLI options change between releases. The templates below follow the Hugging Face LeRobot v0.6.1 CLI documentation; the installed command's `--help` wins. If a flag is absent, do not copy it anyway.
 
-The LaundryBench environment is distinct from the LeRobot environment. Python 3.11+ is sufficient for the repository; its LeRobot check requires Python 3.12+. The repo's host check reports optional laptop prerequisites but does not verify a physical arm. For LeRobot-side host reporting, after activating that separate environment, run `make host-check PYTHON="$(command -v python)"` and `make lerobot-check PYTHON="$(command -v python)"` from the repository root.
+The LaundryBench environment is distinct from the LeRobot environment. Python 3.11+ is sufficient for the repository; its LeRobot check requires Python 3.12+. The repo's host check reports optional laptop prerequisites but does not verify a physical arm. For LeRobot-side host reporting, after activating that separate environment, run `make host-check PYTHON="$(command -v python)"` and `make lerobot-check PYTHON="$(command -v python)"` from the repository root. If you changed `LB_ENV` because the example path already existed, use that same chosen path in every later standalone `LB_PYTHON=...` line.
+
+In each new terminal that will run LaundryBench commands, set `LB_PYTHON` to the dedicated project environment again; shell variables do not carry over between terminals:
+
+```bash
+LB_PYTHON="$HOME/.venvs/laundrybench-review/bin/python"
+"$LB_PYTHON" --version
+```
 
 ## Phase 1 — run the LaundryBench mock feedback loop
 
@@ -212,7 +221,7 @@ cd /tmp/lerobot-camera-probe
 lerobot-find-cameras opencv
 ```
 
-Record the chosen camera index/path, output profile, and observed FPS. Start with a profile the camera actually reports, for example 640 x 480 at 15 FPS if supported; do not request 1920 x 1080/30 merely because a YAML file says so. Keep the same named camera slot (`front`), index/path, dimensions, and FPS for record, dataset inspection, training and rollout. A policy trained with one camera feature layout/resolution may reject or misread a different rollout layout.
+Record the chosen camera index/path, output profile, and observed FPS. Start with a profile the camera actually reports, for example 640 x 480 at 15 FPS if supported; do not request 1920 x 1080/30 merely because a YAML file says so. Recording dataset FPS cannot exceed camera acquisition FPS; training control rate must exactly match dataset FPS; rollout camera acquisition must be at least the control rate. The aligned examples use a 15 FPS camera and a 15 FPS dataset/control rate; if the camera only supports a lower rate, set recording `dataset.fps`, training `control_hz`, and rollout `runtime.control_hz` to the same lower rate. Keep the same camera name (`front`), index/path, dimensions, and RGB mode throughout; camera acquisition FPS may be higher than the dataset/control rate. A policy trained with one camera feature layout/resolution may reject or misread a different rollout layout.
 
 Use local environment discovery to write down the exact fields, but do not modify the repository's mock configuration as if it were a physical config:
 
@@ -230,218 +239,292 @@ Use local environment discovery to write down the exact fields, but do not modif
 
 **Checkpoint:** both physical arms identified separately, both matching calibration IDs found, permissions allow non-root serial access, and the camera finder sees a live stream at the selected profile. No motion has occurred.
 
-## Phase 3 — supervised teleoperation and smoke demonstrations
+## Phase 3 — configure and record supervised demonstrations
 
-Before a motion command: clear the table/workspace; keep the leader, follower, and cable paths clear; keep the physical power disconnect accessible; make sure the operator is beside the follower; confirm no person or loose object can enter the arm's sweep; use light fabric only. Do not change the camera, calibration IDs, or arm roles between teleoperation, demonstration capture, and eventual rollout.
+Keep the LeRobot leader/follower roles, ports, IDs, camera feature key, frame geometry, dataset FPS/control rate, and normalized joint setting consistent through collection and rollout. In recording YAML, `camera.fps` is the acquired camera rate and `dataset.fps` is the recorded/control cadence; the latter must not exceed the former. The recording wrapper expects the physical **follower** and a distinct calibrated **leader**. It does not recalibrate and pins LeRobot 0.6.1 through the configured Python executable.
 
-**MOVES THE FOLLOWER (leader teleoperation):** this is the first commanded motion. Confirm the ports and IDs are exact before running. LeRobot may prompt about calibration if it cannot find the existing ID; choose to stop and diagnose, not to recalibrate.
+Copy the example to a private local config file. Replace every device-specific placeholder and set absolute paths for the dataset root, recording manifest, LeRobot Python, and LeRobot home. Keep the dataset root new and the manifest outside it. If `HF_LEROBOT_HOME` is set in your shell, it must resolve to the configured LeRobot home. Use the already calibrated IDs and verify their files in the role-specific cache paths from Phase 2.
 
 ```bash
-lerobot-teleoperate \
-  --robot.type=so101_follower \
-  --robot.port="$FOLLOWER_PORT" \
-  --robot.id="$FOLLOWER_ID" \
-  --robot.cameras="{ front: {type: opencv, index_or_path: <CAMERA_INDEX>, width: 640, height: 480, fps: 15} }" \
-  --teleop.type=so101_leader \
-  --teleop.port="$LEADER_PORT" \
-  --teleop.id="$LEADER_ID" \
-  --display_data=true
+cd projects/laundrybench
+LB_PYTHON="$HOME/.venvs/laundrybench-review/bin/python"
+cp configs/recording.example.yaml /tmp/recording.home.yaml
+# Edit /tmp/recording.home.yaml with the observed absolute paths and IDs.
 ```
 
-Replace `<CAMERA_INDEX>` with the integer or path returned by discovery, and dimensions/FPS with the actual supported profile. `--display_data` availability and requirements are version-dependent; omit it only if the installed command help says it is not supported or Rerun is not installed. Use the stop key documented by this installed command. Keep the first check brief. Confirm the follower mirrors leader motion in the expected direction, the gripper works, and displayed frames change. Stop if follower lags, moves unexpectedly, approaches a collision, or camera output freezes.
-
-For the first recording, create a new local dataset ID; keep uploads off. Use a short single task and only 2-3 episodes. **RECORDS PHYSICAL DEMONSTRATIONS and lets the leader move the follower.** The keyboard save/retry/stop behavior below is from LeRobot's v0.6.1 cheat sheet; verify in installed `lerobot-record --help` before beginning.
+Inspect the plan. This writes a `planned` manifest and prints the exact LeRobot argv but does not open serial/camera devices or create a dataset:
 
 ```bash
-DATASET_ID="<HF_USERNAME>/laundrybench_sock_smoke_YYYYMMDD"
-
-lerobot-record \
-  --robot.type=so101_follower \
-  --robot.port="$FOLLOWER_PORT" \
-  --robot.id="$FOLLOWER_ID" \
-  --robot.cameras="{ front: {type: opencv, index_or_path: <CAMERA_INDEX>, width: 640, height: 480, fps: 15} }" \
-  --teleop.type=so101_leader \
-  --teleop.port="$LEADER_PORT" \
-  --teleop.id="$LEADER_ID" \
-  --dataset.repo_id="$DATASET_ID" \
-  --dataset.num_episodes=3 \
-  --dataset.single_task="pick up the sock and place it in the sock basket" \
-  --dataset.push_to_hub=false \
-  --display_data=true
+"$LB_PYTHON" scripts/record.py --help
+"$LB_PYTHON" scripts/record.py --config /tmp/recording.home.yaml
 ```
 
-Use LeRobot's key flow from installed help: save a complete attempt, discard/retry a broken capture, or exit cleanly so video encodes. Capture the final dataset repo ID/path printed at completion; LeRobot versions may append a timestamp. Replace the recording base ID in your shell with the exact final identity before visualization, upload, or training; never assume the base ID survived timestamping:
+Review the printed follower/leader ports and IDs, camera profile, dataset root, episode count, and `upload_enabled: false`. Stop if roles or IDs are ambiguous, the camera profile has not been observed, the root already exists, or the calibration paths do not match the IDs and selected cache. Before execution, the wrapper checks the configured Python executable, requires exactly LeRobot 0.6.1 and its recording module, validates both nonempty calibration JSON files at their role-specific LeRobot lookup paths, and requires a foreground interactive terminal. It writes lifecycle states `planned`, `running`, `completed`, or `failed` to the configured recording manifest.
+
+**MOVES THE FOLLOWER AND RECORDS PHYSICAL DEMONSTRATIONS.** After the manual safety preflight in Phase 2 passes, run this in the foreground interactive terminal with you beside the follower, the work area clear, and the physical stop accessible:
 
 ```bash
-DATASET_ID="<PASTE THE EXACT FINAL DATASET REPO ID PRINTED BY lerobot-record>"
+"$LB_PYTHON" scripts/record.py \
+  --config /tmp/recording.home.yaml \
+  --execute --supervised
 ```
 
-On macOS, if the global keyboard listener is unavailable, LeRobot v0.6.1 accepts the same `n` / `r` / `q` controls in the focused interactive terminal; keep that terminal focused. Do not save a partial/ambiguous episode just to hit the count. The local cache is typically under `~/.cache/huggingface/lerobot/<username>/<dataset-name>`; when exact dataset path is unclear, inspect the command's completion output and run `find "$HOME/.cache/huggingface/lerobot" -maxdepth 4 -type d -name "laundrybench_sock_smoke*" -print`.
+The wrapper prints the exact target and argv, launches LeRobot with shell execution disabled, uploads off, and resume disabled. Follow LeRobot's interactive save/retry/quit controls for v0.6.1. Start with the example's two short episodes; do not save a partial attempt just to meet the count. Ctrl+C/SIGTERM stops the process group and records failure/interruption. Stop if a calibration prompt appears; do not recalibrate as a workaround.
 
-Inspect the actual dataset with the installed `lerobot-dataset-viz --help` then, if that flag set is supported:
+**Expected outputs:** the new native dataset at `dataset.root`, the configured recording JSON manifest outside it, and dataset metadata/data/video. The completed manifest records the effective repo ID when present, portable `local-sha256:<64 hex>` tree digest, `meta/info.json` digest, exact command, device/calibration IDs, exit result, and a validated ACT I/O contract only when metadata matches. The dataset digest covers every regular file in `meta/`, `data/`, and `videos/`; it is distinct from the absolute root and native repo ID. A copied full tree retains the digest; any changed file changes it.
+
+After exit, require manifest `status: completed`, return code zero, dataset files and metadata present, and `act_io_contract.status: validated`. Inspect an episode with the LeRobot viewer before training. Activate the same LeRobot environment used for recording, then use the explicit dataset root and configured repo ID (prefer exact `repo_id_effective` from the manifest when present):
 
 ```bash
+DATASET_ROOT="<ABSOLUTE recording.dataset.root>"
+DATASET_REPO_ID="<EFFECTIVE repo ID or recording.dataset.repo_id>"
 lerobot-dataset-viz \
-  --repo-id "$DATASET_ID" \
-  --root "$HOME/.cache/huggingface/lerobot" \
+  --repo-id "$DATASET_REPO_ID" \
+  --root "$DATASET_ROOT" \
   --mode local \
   --episode-index 0
 ```
 
-Use the LeRobot dataset viewer to inspect camera view, state, actions, episode duration and task text together. If your version stores the dataset elsewhere, point `--root` to its parent as the installed help documents. Reject a smoke set with blank/frozen video, wrong feature names, incomplete clips, wrong task labels, state/action discontinuities from incorrect teleoperation, or mismatched episode counts. Do not proceed to ACT until this checkpoint is good.
+The viewer needs the LeRobot visualization extra/Rerun; use the installed `lerobot-dataset-viz --help` and install guidance if unavailable. Inspect camera frames, task text, state/action plots, duration, and whether the actual object/destination are visible. The schema can validate dimensions/names/FPS, but cannot prove camera freshness or task success.
 
-**Expected artifact:** a new local LeRobot dataset with metadata, episode data and encoded video; it remains native LeRobot data. Do not expect LaundryBench's `manifest.yaml`, `episodes.jsonl`, or run UI to ingest it automatically.
+## Phase 4 — validate and train ACT with provenance
 
-## Phase 4 — collect and train ACT (cloud GPU path)
+LaundryBench's training wrapper delegates ACT to LeRobot 0.6.1 and validates the completed recording manifest, content digest, metadata digest, named camera and dimensions, exact ordered six-joint state/action names, normalized units, recording's `use_degrees=false` settings, task/protocol, and matching dataset/control FPS. It refuses an existing output directory. Without `--execute`, it validates and prints a plan; it does not import LeRobot, create output, upload data, or train.
 
-Do not plan to train a meaningful ACT model on an Intel Mac. Use a Linux NVIDIA CUDA host or a managed GPU job, separately from the robot edge machine. A common pattern: keep the robot laptop connected to hardware, collect and save dataset locally; upload the chosen dataset to a private Hugging Face dataset repository (or copy to a controlled cloud VM), then start the training environment there. Confirm data privacy and Hub permissions before any upload; never paste tokens into shell history or commit them.
-
-For local Linux CUDA, confirm `nvidia-smi` and in the LeRobot environment verify `torch.cuda.is_available()` is true. The latest official installation docs prescribe Python >=3.12; the v0.6.1 docs and project readiness note make clear that the older Intel-macOS setup is not the CUDA training target. If local cloud host doesn't have the right LeRobot `training` extra, install/pin there per the official installation guide, then re-capture version and help.
-
-The shortest explicit cloud route is a Hugging Face Job from the machine with the local dataset. It sends a local-only dataset to a **private** Hub dataset repo for the job; the training result goes to a model repo. This is pay-as-you-go cloud compute. Check `hf jobs hardware` and current pricing, use an account authorized for private dataset/model access, and authenticate with the interactive login command below. Never turn on `--dataset.push_to_hub` for a public dataset or expose private video accidentally. The v0.6.1 docs show `a10g-small` as an example flavor; verify it and all flags in installed help before starting a billable job.
+Fingerprint the dataset and copy the exact `local-sha256:` value into `training.dataset_id`. For **local training**, also set `training.dataset_revision` to that same local content ID. For **cloud training**, keep `dataset_id` as the local content ID but set `dataset_revision` to the exact 40-character Hub dataset commit SHA after privately uploading the dataset as described below. Set `dataset_repo_id` to the effective repo ID from the recording manifest (and matching `meta/info.json` when present), and `dataset_manifest` to the completed recording manifest. Keep `dataset_root` pointing to the complete local dataset tree; the cloud wrapper independently verifies its identity against the selected private Hub commit. Use absolute paths for dataset, manifest, and a fresh output directory. Copy/edit the strict example. Its `contract` must match the validated dataset exactly: `state_names` and `action_names` must copy metadata feature names verbatim (LeRobot SO-101 v0.6.1 uses `.pos` suffixes); `joint_names` is the canonical bare order `shoulder_pan, shoulder_lift, elbow_flex, wrist_flex, wrist_roll, gripper`. Units are normalized, camera key/dimensions/RGB/uint8 match the data, `use_degrees: false`, and normalized bounds match SO-101. Set `control_hz` equal to dataset FPS; no resampling is implemented. Keep the aligned example rates together; if you lower the rate, update recording dataset FPS, training control FPS, rollout control FPS, and camera acquisition FPS so camera acquisition remains at least as high as control.
 
 ```bash
-# Use an interactive login; do not put the access token in this file or shell history.
+"$LB_PYTHON" scripts/train.py --help
+"$LB_PYTHON" scripts/train.py \
+  --fingerprint-dataset "/absolute/path/to/recorded-dataset"
+cp configs/training.example.yaml /tmp/training.home.yaml
+# Edit the config with the fingerprint, completed manifest, contract and paths.
+"$LB_PYTHON" scripts/train.py --config /tmp/training.home.yaml
+```
+
+For actual training use a compatible LeRobot 0.6.1 training environment and supported accelerator. For Linux NVIDIA, check `nvidia-smi` and verify `torch.cuda.is_available()`. The dataset tree is portable: you may copy it to the GPU host, then point `training.dataset_root` to the copy, provided the copy is complete and unchanged, its freshly computed `local-sha256:` digest exactly matches the recording manifest's dataset ID, and its `meta/info.json` digest matches the manifest. Keep the original completed recording manifest as provenance; do not rewrite it to replace its recorded collection path. The wrapper checks tree identity and metadata content, not that the training host reuses the original absolute dataset path. If you cannot transfer the private dataset safely, use the explicitly private HF Jobs path instead. Then execute using the LaundryBench environment on the training host and the Python from that host’s actual LeRobot 0.6.1 environment:
+
+```bash
+"$LB_PYTHON" scripts/train.py \
+  --config /tmp/training.home.yaml \
+  --lerobot-python "/absolute/path/to/lerobot-env/bin/python" \
+  --execute
+```
+
+A local completed run has `laundrybench_training.json` and a root-level `policy_contract.json` in the configured LaundryBench output directory. LeRobot writes to the fresh `native/` child; use the checkpoint path in the manifest, typically `native/checkpoints/<step>/pretrained_model/`, for rollout. A usable native checkpoint includes `config.json`, `model.safetensors`, `policy_preprocessor.json`, `policy_postprocessor.json`, referenced normalizer/unnormalizer processor-state `.safetensors`, and its `policy_contract.json`; the root-level contract is also emitted for convenient provenance. Contracts hash model weights, processor JSONs, and processor-state files, then bind them to dataset/task/protocol/camera/joint metadata. A zero exit code without all expected files is not a pass. Two smoke demos check plumbing, not ACT quality or safe task performance.
+
+Cloud mode is an explicitly opted-in, billable route for a laptop without an NVIDIA GPU. It requires `mode: cloud`, a job target, explicit private model repo, `private: true`, and `allow_private_upload: true`. You must privately upload the dataset yourself first; the LaundryBench wrapper never uploads it. The wrapper checks the selected LeRobot environment's Hub credentials, requires the dataset repo to be private and the requested SHA to resolve to that exact commit, downloads only `meta/`, `data/`, and `videos/` into a temporary snapshot, and compares that snapshot's content digest to the local recording manifest before it creates the run output or submits a job. The native Job receives `--dataset.revision=<40-character-SHA>`, so it cannot silently train from a different `main` revision. The cloud dry-run marks this remote check pending; the check happens only on `--execute`.
+
+Under the existing `training:` mapping in `/tmp/training.home.yaml`, set these fields (choose a valid target and a private model repo):
+
+```yaml
+mode: cloud
+allow_private_upload: true
+cloud:
+  target: a10g-small
+  model_repo_id: your-namespace/private-act-checkpoint
+  private: true
+```
+
+Create a private dataset repository, upload the complete local dataset tree, then record the exact commit SHA. Do not upload publicly. If the repo already exists, verify its visibility is private before uploading. The HF CLI commands below follow the official Hub CLI (`hf repos create`, `hf upload`); authenticate interactively and do not put tokens in shell history or this config.
+
+```bash
+DATASET_REPO_ID="<namespace/private-dataset>"
+DATASET_ROOT="/absolute/path/to/verified-recorded-dataset"
 hf auth login
-hf jobs hardware
-
-HF_USER="<YOUR_HF_USERNAME>"
-DATASET_ID="<PASTE THE EXACT FINAL DATASET REPO ID PRINTED BY lerobot-record>"
-POLICY_ID="$HF_USER/act_laundrybench_YYYYMMDD"
-
-# Managed cloud GPU. The local-only dataset is uploaded privately by the job.
-lerobot-train \
-  --dataset.repo_id="$DATASET_ID" \
-  --policy.type=act \
-  --policy.repo_id="$POLICY_ID" \
-  --policy.private=true \
-  --job.target=a10g-small \
-  --steps=20000
+hf repos create "$DATASET_REPO_ID" --repo-type dataset --private
+hf upload "$DATASET_REPO_ID" "$DATASET_ROOT" --repo-type dataset
 ```
 
-This is the direct LeRobot CLI, not LaundryBench's stub `train.py`. Check the job logs and model repo for a finished checkpoint, exact training config, and source dataset identity. If you choose your own Linux NVIDIA host instead, first make the exact dataset revision available to that host (controlled file transfer into LeRobot's dataset root, or an intentionally private Hub dataset). Verify `nvidia-smi`, confirm `torch.cuda.is_available()` in that host's LeRobot environment, install/pin LeRobot's `training` extra for that version, and use a local-only checkpoint output:
+If `hf repos create` reports that the repository already exists, inspect it in the Hub settings and confirm it is private before proceeding. After upload, query and save the commit SHA produced by that upload. This command prints the current dataset commit SHA using the activated LeRobot environment:
 
 ```bash
-lerobot-train \
-  --dataset.repo_id="<EXACT_FINAL_DATASET_REPO_ID>" \
-  --policy.type=act \
-  --output_dir="outputs/train/act_laundrybench_YYYYMMDD" \
-  --job_name="act_laundrybench_YYYYMMDD" \
-  --policy.device=cuda \
-  --policy.push_to_hub=false \
-  --steps=20000
+LEROBOT_PYTHON="/absolute/path/to/lerobot-env/bin/python"
+DATASET_REPO_ID="<namespace/private-dataset>" \
+  "$LEROBOT_PYTHON" - <<'PY'
+import os
+from huggingface_hub import HfApi
+
+repo_id = os.environ["DATASET_REPO_ID"]
+info = HfApi().repo_info(repo_id=repo_id, repo_type="dataset")
+if info.private is not True:
+    raise SystemExit("Refusing to use a dataset repository that is not private")
+print(info.sha)
+PY
 ```
 
-Verify `--policy.push_to_hub=false` and dataset-root options in that environment's `--help`; omit `--policy.repo_id` when you want local-only checkpoints. To intentionally publish a model, use a private repo and `--policy.private=true` only after confirming visibility. Do not run the GPU training command on the robot laptop unless that laptop actually has a supported CUDA-capable NVIDIA GPU.
+Set `training.dataset_repo_id` to this private dataset repo, `training.dataset_revision` to the exact 40-character commit SHA, and `training.dataset_root` to the existing absolute local tree already bound to the completed recording manifest. Keep `training.dataset_id` as the local `local-sha256:` content digest. The wrapper verifies the private Hub snapshot against that local content identity before submission. It rejects an existing public model repo; use a new private model repo or an existing private one. The Jobs flow pins `--dataset.revision` and enables a private model push. Refer to Hugging Face's [Hub CLI guide](https://huggingface.co/docs/huggingface_hub/en/guides/cli) and [upload guide](https://huggingface.co/docs/huggingface_hub/en/guides/upload) for the current syntax and behavior.
 
-For meaningful performance iteration, a few smoke episodes are not enough. Collect a larger, consistent demonstration set after reviewing the smoke set (HF currently recommends ACT as a good first policy and says 50 demonstrations can be effective, but task complexity and demonstration quality matter). Freeze the task, workspace, camera placement, and episode protocol. Keep a held-out evaluation split or at least a fixed physical attempt protocol; never train on the outcomes you call a held-out test. Copy the exact dataset repo ID/revision, training command, LeRobot/PyTorch/CUDA versions, GPU type, seed, and checkpoint path/ID into the experiment note.
-
-**Training checkpoint:** the output folder contains the final/last pretrained checkpoint and `train_config.json` (path structure depends on version), loss/logs are finite, the train command exited successfully, and the checkpoint's dataset, camera feature names, joint feature order/units, pre/postprocessors and policy config are saved. A zero exit status without checkpoint artifacts is not a pass. Preserve the checkpoint and logs outside git.
-
-## Phase 5 — evaluate a native LeRobot checkpoint under operator control
-
-LaundryBench `scripts/run_policy.py` is not the policy runner. A native LeRobot rollout can test a policy on the arm, but it remains outside LaundryBench's outcome/evidence lifecycle. Begin only after the dataset and checkpoint passed inspection, all physical issues below are understood, and the operator explicitly confirms this bounded physical action.
-
-Version v0.6.1's `lerobot-rollout` supports `--strategy.type=base` for bounded policy execution without recording. Use the installed help and exact camera and IDs from the dataset. A first rollout should be short (`--duration=10` or similarly conservative) and supervised. `--duration=0` means run indefinitely in current docs: do not omit duration and do not use zero. Confirm an immediate local stop method and reachable physical power disconnect before start.
-
-**EXECUTES A TRAINED POLICY ON THE PHYSICAL FOLLOWER.** This is an operator command, not a dry run. Run it only after the preflight checklist and exact installed-version help are satisfied.
+First plan again and inspect the printed command/target. Review account access, dataset/video privacy, current hardware availability and price. Authenticate interactively and submit only after those checks:
 
 ```bash
-lerobot-rollout \
-  --strategy.type=base \
-  --policy.path="<LOCAL_CHECKPOINT_OR_HF_POLICY_ID>" \
-  --robot.type=so101_follower \
-  --robot.port="$FOLLOWER_PORT" \
-  --robot.id="$FOLLOWER_ID" \
-  --robot.cameras="{ front: {type: opencv, index_or_path: <CAMERA_INDEX>, width: 640, height: 480, fps: 15} }" \
-  --task="pick up the sock and place it in the sock basket" \
-  --duration=10 \
-  --display_data=true
+hf auth login
+"$LB_PYTHON" scripts/train.py --config /tmp/training.home.yaml
+# Only after reviewing the private target, cost, and printed plan:
+"$LB_PYTHON" scripts/train.py \
+  --config /tmp/training.home.yaml \
+  --lerobot-python "/absolute/path/to/lerobot-env/bin/python" \
+  --execute
 ```
 
-The native base rollout does not save an evaluation dataset. If the installed v0.6.1 rollout help includes `--strategy.type=episodic`, that strategy can record bounded evaluation episodes to a **new** native evaluation dataset; check its exact supported options, reset behavior, episode count/duration, push-to-Hub defaults, and stop keys before using it. Do not accidentally push evaluation footage publicly. LeRobot's v0.6.1 inference docs state the `episodic` strategy records each policy-driven episode and uses keyboard controls to stop/discard episodes. A policy rollout that runs cleanly is not a successful task result; the operator still observes each attempt and notes its actual outcome.
+A training process can record `submitted`, `detached`, or `submission_error` depending on how the submit client ended; a job ID must be present to continue finalization, and none of those statuses alone prove completion. Follow native HF Job logs until the remote job is complete. Get the exact 40-character model repository commit revision, then download that immutable revision to a new private local directory:
 
-**Native evaluation evidence:** save the evaluation dataset/run path, checkpoint identity, task/protocol version, date/operator, exact command/version, each episode's ground-truth outcome, intervention, failure mode, and notes. LeRobot's dataset viewer is currently the supported native inspection path. If you run `lerobot-rollout` with `base`, keep an external attempt sheet because there is no recorded evaluation dataset.
+```bash
+MODEL_REPO="<PRIVATE_NAMESPACE/MODEL_REPO>"
+MODEL_REVISION="<FULL_40_CHARACTER_MODEL_COMMIT_SHA>"
+DOWNLOAD_DIR="/absolute/path/to/private-model-download"
+hf download "$MODEL_REPO" --repo-type model \
+  --revision "$MODEL_REVISION" --local-dir "$DOWNLOAD_DIR"
+find "$DOWNLOAD_DIR" -name config.json -print
+```
 
-## Phase 6 — what is and is not joined to LaundryBench
+From that output, set `CHECKPOINT_DIR` to the directory containing the ACT `config.json`, `model.safetensors`, both processor JSON files, and every processor-state file they reference. The checkpoint may be directly in `$DOWNLOAD_DIR` or in a nested `pretrained_model` directory; select the actual directory that contains the complete model bundle. Do not assume a fixed subdirectory; verify the files before finalizing. Use the same cloud config and configured output directory recorded for the submission:
 
-Current LaundryBench run layout is `manifest.yaml`, `episodes.jsonl`, `traces/steps.jsonl`, optional `quality.json`, `experiment.json`, label sidecar `labels.json`, and optional per-episode `media/<episode_id>/media.json` + video. Its frontend persists post-episode labels and recalculates reviewed-only metrics from the run. The media importer requires an already-existing LaundryBench episode and explicit `duration_s` plus absolute host-clock `trace_start_s`. It copies MP4/WebM only; it does not open camera streams, convert LeRobot state/action tables, create episodes, create LaundryBench traces, or measure physical clock synchronization. Therefore it cannot currently connect a native LeRobot rollout to the UI. Do not attach a physical video clip to an unrelated mock episode.
+```bash
+CHECKPOINT_DIR="$DOWNLOAD_DIR/<exact directory containing model files>"
+"$LB_PYTHON" scripts/train.py \
+  --config /tmp/training.home.yaml \
+  --finalize-checkpoint "$CHECKPOINT_DIR" \
+  --remote-model-revision "$MODEL_REVISION" \
+  --confirm-remote-complete
+```
 
-**Physical integration gates tracked in Linear:**
+The finalizer accepts a prior `submitted`, `detached`, or `submission_error` record only when a Job ID is recorded and config/dataset/model-repo lineage matches. It requires your explicit completion confirmation. It writes `policy_contract.json` and `laundrybench_finalize.json` with `status: contract_finalized` into the downloaded checkpoint; only then can rollout dry-run validate that local bundle. The original training run keeps its original submission state. The finalizer relies on your confirmation of remote completion and selected model commit; the recorded revision verification is operator-asserted, not independently queried.
 
-| Issue | Remaining gate | Why the home loop stops short |
+## Phase 5 — dry-run, then bounded supervised ACT rollout
+
+Copy the example to a local config and set absolute paths for a completed local checkpoint with adjacent `policy_contract.json` and a fresh output directory under `projects/laundrybench/outputs/physical/<EXPERIMENT_ID>`. Set the exact dataset ID/revision, task/protocol, existing calibrated follower port/ID, same camera key/dimensions, and finite conservative limits. The rollout runner resolves relative paths from the YAML file; the copied `/tmp` config must not retain its example-relative output path. The example defaults to three episodes, 15 seconds each, 15 Hz control and `max_relative_target: 1.0`, aligned with the recording/training examples. Keep `runtime.control_hz: 15` only if the trained dataset FPS is exactly 15; otherwise set it to the exact training FPS. Camera acquisition FPS must be at least control FPS. Keep the per-command relative limit small. The implementation caps it at five normalized units, which is not a collision, velocity, or emergency-stop guarantee.
+
+```bash
+cd projects/laundrybench
+cp configs/rollout.example.yaml /tmp/rollout.home.yaml
+# Edit paths, dataset/checkpoint identity, follower and camera values.
+"$LB_PYTHON" scripts/run_policy.py --help
+"$LB_PYTHON" scripts/run_policy.py --config /tmp/rollout.home.yaml
+```
+
+Default invocation is a no-motion dry run: it validates config, checkpoint files, saved LeRobot processors, hashes and policy contract without importing Torch/LeRobot or connecting to the robot. The output directory must be new. Resolve all mismatches before physical execution, especially dataset revision, task/protocol, camera key/shape, dataset/control FPS, joint order/units and processor hashes.
+
+**EXECUTES A TRAINED POLICY ON THE PHYSICAL FOLLOWER.** Run only after the dry run passes and you confirm the calibrated follower port/ID, clear work area, live matching camera, accessible physical stop, and your presence beside the arm. `run_policy.py` calls `connect(calibrate=False)`; it does not calibrate or home. The runner validates its contract and runtime limits before connecting. Ctrl+C/SIGTERM/error aborts active capture and stops/disconnects the robot; keep the physical stop accessible throughout.
+
+```bash
+"$LB_PYTHON" scripts/run_policy.py \
+  --config /tmp/rollout.home.yaml \
+  --execute --supervised
+```
+
+The code cap is ten episodes and 120 seconds per episode, with cadence and target limits from config; choose a smaller first run. Use a new output directory for every rollout. A process that exits cleanly is not evidence that the task succeeded.
+
+## Phase 6 — inspect physical evidence, review outcomes, and iterate
+
+The supervised runner writes a real LaundryBench run directly. It emits `manifest.yaml`, `episodes.jsonl`, `traces/steps.jsonl`, `traces/commands.jsonl`, `quality.json`, `experiment.json`, per-episode `media/<episode_id>/media.json` and MP4, plus `capture_diagnostics.json`. Context binds config, checkpoint, dataset, task/protocol and LeRobot identities. `commands.jsonl` separates requested targets from targets sent after the SO-101 adapter's relative bound. Video records the fresh pre-action observation frames supplied to ACT; the terminal post-action observation is not currently appended, so the final video frame is not full endpoint visual proof. Host observation timestamps are mapped to fixed-FPS video with a bounded cadence/drift check; camera exposure timestamps are unavailable and repeated stale frames cannot be detected without a device counter.
+
+Each rollout episode is provisional: it starts `success: false`, `failure_category: unspecified`, without a human label. It contributes to reviewed-only metrics only after a person saves an outcome. Inspect `capture_diagnostics.json`: require completed status, expected FPS and frame counts, acceptable maximum timestamp residual, no error, `media.json`, and playable video. These checks establish software evidence integrity, not exposure synchronization or task success.
+
+From the repository root, serve the physical run parent directory (one writer server for the root):
+
+```bash
+"$LB_PYTHON" projects/laundrybench/scripts/serve.py \
+  --outputs-root projects/laundrybench/outputs/physical \
+  --frontend-dir projects/laundrybench/frontend/dist
+```
+
+Open `http://127.0.0.1:8765`; select the experiment ID in the rollout config. Inspect each episode's camera, timeline, traces/commands and context, then save a human outcome and failure category in the UI. Record intervention separately from cause. Exclude an episode only for a specific evidence-quality reason such as corrupt video, wrong camera, or invalid capture. Never label a task successful only because the process exited cleanly. Labels are in `labels.json`; the original physical episode evidence stays unchanged. If a label write returns HTTP 409, reload and confirm current labels before retrying.
+
+After reviewing, regenerate the report for that same run:
+
+```bash
+"$LB_PYTHON" projects/laundrybench/scripts/report.py \
+  --experiment-dir projects/laundrybench/outputs/physical/<EXPERIMENT_ID>
+```
+
+Compare the UI and `summary.json`/`report.html`: reviewed, pending and excluded episode counts; reviewed-only `success_rate`; `failure_category_counts`; and `label_revision`. If none are reviewed, rate is unavailable, not zero. Compare baseline/candidate only when task, protocol, conditions and relevant context match; do not call a synthetic mock run a physical baseline.
+
+For failure analysis, inspect video and timeline, state/action traces, requested-versus-sent commands, checkpoint/data contract, capture diagnostics and `quality.json`. Choose one dominant failure and one controlled response: repair/add demonstrations, adjust one bounded config/control factor, or investigate adapter/camera/evidence. Keep the failed run immutable. Use new dataset/checkpoint/config/run paths and repeat the same bounded protocol. Record the changed factor and compare only compatible runs.
+
+## Implemented software and open physical acceptance
+
+| Gate | Implemented software | Physical acceptance still needed |
 |---|---|---|
-| JWA-26 | Verify the offline SO-101 adapter against the calibrated hardware and installed LeRobot version; inspect state/frames, disconnect/reconnect and bounded motion | Offline fake-follower tests are not physical compatibility validation |
-| JWA-16 | Wire `scripts/record.py` as a guarded LeRobot recording wrapper with explicit ports/IDs/settings | The file currently fails fast; native recording is direct LeRobot only |
-| JWA-17 | Wire a reproducible `train.py` CLI/config and CUDA training container/job | The file currently fails fast; train directly with LeRobot on a Linux NVIDIA host until implemented |
-| JWA-23 | Load an ACT checkpoint through a LaundryBench policy adapter and bounded physical evaluation, with guaranteed stop and provenance | Current `run_policy.py` is a stub; no ACT `Policy.reset()/act()` bridge exists |
-| JWA-14 | Connect physical episode completion/pending review to the frontend label lifecycle | The UI can review current LaundryBench runs, but native LeRobot episodes are not LaundryBench runs |
-| JWA-28 | Validate real robot/camera media and physical trace/video alignment with recorded event evidence | Software timing fixtures and imported media do not prove synchronized physical evidence |
+| JWA-26 | SO-101 adapter, normalized joint contract and bounded relative targets; offline tests | Verify calibrated hardware direction, observations, live camera, stop/reconnect and installed-host compatibility |
+| JWA-16 | Dry-run-first supervised recorder with calibration-path checks and lifecycle manifest | Complete and inspect real demonstrations and dataset metadata |
+| JWA-17 | Strict dataset-bound ACT wrapper, checkpoint/proc-state provenance, private Jobs submission and explicit downloaded-checkpoint finalizer | Run actual GPU training and evaluate checkpoint quality; cloud completion, selected revision and model contents require operator confirmation |
+| JWA-23 | Contract/hash-checked ACT adapter and bounded supervised physical runner | Validate local checkpoint inference and safe behavior on the calibrated arm |
+| JWA-14 | Physical runs use normal LaundryBench artifacts and UI label lifecycle | Confirm real media/traces review correctly and reviewed metrics make sense |
+| JWA-28 | Capture from fresh pre-action observations with bounded host-clock/video cadence diagnostics | Validate camera freshness and real host timing; hardware exposure synchronization is not claimed |
 
-The issue sequence is not automatically sequential in all parts; JWA-23 depends on the SO-101 adapter and a trained checkpoint. Track gates and evidence in an experiment note. **Do not manufacture a `manifest.yaml`, `episodes.jsonl`, `traces/steps.jsonl`, metrics, or media clock offset from native files by hand to make the UI look integrated.** The correct integration is a tested adapter/importer with schema/version checks and provenance.
-
-Once the missing connector is implemented, the intended loop is:
-
-1. Record reviewed demonstrations and freeze dataset revision, task, workspace, and camera protocol.
-2. Train ACT on Linux NVIDIA/cloud; save checkpoint identity, exact training command/config, and logs.
-3. Run a bounded follower rollout with clear supervision and guaranteed robot stop; save per-episode outcomes, joint traces, and camera evidence.
-4. Import those *same physical episodes* with verified mapping and clock evidence into LaundryBench runs; add experiment context, then open the local UI.
-5. Human-review each episode; choose `missed_grasp`, `grasp_lost`, `wrong_object`, `dropped`, `missed_basket`, `timeout`, `intervention`, `hardware_fault`, `frozen_camera`, or `unspecified` as applicable. Keep intervention separate from cause.
-6. Compare to the same task/protocol baseline. Select one dominant failure. Add targeted demonstrations or alter one controlled factor, version the changed dataset/policy/protocol, train a candidate, and rerun the same bounded test.
+The optional CPU integration smoke uses generated synthetic inputs and a one-step CPU training pass; it checks LeRobot compatibility and adapter plumbing, not training on recorded demonstrations or checkpoint quality. No hardware action, real demonstration, GPU job, or physical rollout was run in preparing this guide. Stop on unexpected motion, unexpected calibration flow, contract mismatch, or capture diagnostics failure. The software integration is implemented; physical acceptance and task success are still unverified.
 
 ## Stop criteria and checkpoints by phase
 
 | Phase | Pass only when | Stop / diagnose when |
 |---|---|---|
-| Environment | Exact Python/LeRobot versions captured; required CLI `--help` works | LeRobot import/CLI help fails, required extras absent, or command paths point to another environment |
-| Discovery | Two distinct ports map to the correct leader/follower IDs; live camera profile confirmed | Roles/IDs ambiguous, calibration prompt appears unexpectedly, permissions fail, or camera frame is stale |
-| Teleop | Follower tracks leader safely; camera display is live; stop path tested | Reversed/jerky movement, stalled follower, unexpected torque, collision risk, frozen image |
-| Smoke demos | 2-3 complete local episodes; viewer shows correct task, frames, state/action and duration | Missing/corrupt video, wrong task/camera key, truncated episode, inconsistent action/state, surprise Hub upload |
-| Training | Expected checkpoint/config/logs exist; finite loss and metadata match dataset | CUDA unavailable on cloud host, data feature mismatch, NaN loss, missing checkpoint, or wrong dataset revision |
-| Native rollout | Bounded supervised evaluation completes with observed outcome notes and no safety fault | Unbounded run, policy/config mismatch, stale/wrong camera, unexpected motion or missing stop behavior |
-| LaundryBench UI | Synthetic runs show labels change UI and CLI summaries consistently | Any mock artifact is described as physical; never use a native-only dataset as a LaundryBench run |
+| Environment | Isolated LaundryBench env, active LeRobot 0.6.1 Python, wrappers' `--help` and mock UI loop work | CLI path points to another env, extras are absent, or project Python is below 3.11 |
+| Discovery/dry runs | Correct leader/follower roles and existing IDs; camera live; record/train/rollout plans match intended data/paths | Roles/IDs ambiguous, unexpected calibration prompt, permission error, mismatched dataset/checkpoint contract |
+| Recording | Completed manifest, full dataset tree, validated metadata contract, inspected demonstrations | Failed/partial manifest, no videos, invalid metadata contract, frozen/wrong camera, or unexpected Hub upload |
+| Training | Completed manifest shows checkpoint and processor contracts/hashes; finite logs and correct dataset revision | Fingerprint mismatch, unsupported CUDA, output exists, NaN/error, or missing checkpoint artifact |
+| Physical rollout | Bounded run, clean capture diagnostics, all episodes reviewed, metric/report matches labels | Unexpected motion, stale camera, contract mismatch, capture abort, or unreviewed/unsupported success claim |
+| Review/iteration | Physical runs are compared only under compatible task/protocol; one targeted change is recorded | Synthetic data is presented as physical or old run evidence is manually rewritten |
 
 ## Troubleshooting
 
-### Nothing moves in teleoperation
+### Recording does not start or the follower does not move
 
-1. Stop; verify `--robot.type=so101_follower`/`--robot.port` point to the follower and `--teleop.type=so101_leader`/`--teleop.port` to the leader. They must be different ports.
-2. Confirm the leader is connected/powered and is the input device. Follower-only hardware cannot produce this two-arm demonstration path.
-3. Check OS enumeration again and use persistent Linux `/dev/serial/by-id` where possible. Check non-root serial group permissions on Linux or data cable/USB enumeration on macOS.
-4. Recheck exact calibrated robot/teleop IDs and active Python environment. Same ID must be used each time; LeRobot uses ID to find calibration.
-5. If a calibration prompt appears, stop instead of recalibrating. Resolve which config/cache the CLI is reading.
-6. If device is connected but follower still does not track, stop and capture the sanitized error/version for JWA-26. Don't repeatedly reconnect while the work area is ambiguous.
+1. For a dry run, check config path/required fields and that its manifest is `planned`. For execution, it must run in a foreground TTY with both `--execute --supervised`.
+2. Verify recording config has a distinct physical follower and leader port and ID, with each calibration path matching the ID/cache selected by `lerobot.home` and `HF_LEROBOT_HOME`.
+3. Check OS enumeration and non-root serial permissions. Confirm the leader is powered/connected and the arm roles match physical labels.
+4. The wrapper requires LeRobot exactly 0.6.1 in the configured Python. Recheck `lerobot.python` and the command plan; do not repair by recalibrating.
+5. If any calibration prompt appears, stop immediately and resolve the configured ID/cache mismatch. If physical behavior remains unexpected, power-stop safely and preserve the recording manifest/error for JWA-26.
 
 ### Camera preview freezes, shows wrong camera, or is blank
 
-- Quit the process using the documented stop key. Re-run camera discovery after unplug/replug; indices can change. Ensure no other app holds the camera. Use the detected device path/index and a profile it reported.
+- Stop the recorder/rollout immediately using Ctrl+C or the physical stop if needed. Re-run camera discovery after unplug/replug; indices can change. Ensure no other app holds the camera. Use the detected device path/index and a profile it reported.
 - Try one USB camera, a shorter USB cable/hub path, and a lower supported resolution/FPS. Confirm moving an object changes frames, not just a static preview. If the preview only updates at 1-2 FPS, do not record/train: check USB bandwidth, camera format, actual FPS, host CPU, and whether another high-resolution stream is open.
-- Give the stream the same stable feature key (`front`) when recording and rolling out. Camera display requires optional visualization dependencies; recording itself must still produce encoded frames.
-- If video appears smooth but trace timing is uncertain, note that no hardware synchronization is guaranteed. Do not invent `trace_start_s`.
+- Give the stream the same stable feature key (`front`) for training and rollout. Check the recording `act_io_contract`, then after rollout inspect `capture_diagnostics.json`, `media.json`, the expected frame count and that the MP4 plays.
+- A cadence failure aborts capture; fix FPS/host load and use a new output directory. The diagnostics bound host observation-to-video timing but do not provide camera exposure synchronization or detect repeated stale frames.
 
 ### CUDA unavailable / out-of-memory / training slow
 
 - `torch.cuda.is_available() == False` means the current environment is not using a usable NVIDIA GPU. On Intel macOS, do not expect CUDA; move training to a Linux NVIDIA instance or supported managed GPU job. MPS applies to Apple Silicon and is not CUDA.
 - On Linux cloud VM, check `nvidia-smi`, Python/PyTorch build, `lerobot-train --help`, and available disk/RAM before training. Use the LeRobot install guidance for the driver-compatible PyTorch CUDA wheel and `training` extras.
-- For out-of-memory, lower training batch size using the installed config flag (inspect `lerobot-train --help`/ACT configuration), reduce image resolution only with a protocol/version change, or use a larger GPU. Record the choice in the experiment note; don't silently change the evaluation camera.
+- Training config selects device and batch size; `train.py` prints the exact command in plan mode. For out-of-memory, lower configured `batch_size` or use a larger GPU. Reduce image resolution only with a protocol/version change; record the change and do not silently alter the evaluation camera.
+
+### TorchCodec/FFmpeg or binary ABI import error
+
+First confirm which LeRobot Python is running the training command. In a dedicated training environment, run the repo readiness check and optional CPU ACT adapter smoke:
+
+```bash
+set -e
+cd projects/laundrybench
+LEROBOT_PYTHON="/absolute/path/to/your/lerobot-env/bin/python"
+"$LEROBOT_PYTHON" scripts/check_lerobot.py
+"$LEROBOT_PYTHON" -c 'import torch, torchcodec; from torchcodec.decoders import get_safe_default_video_backend; print("torch", torch.__version__, "torchcodec", torchcodec.__version__, "backend", get_safe_default_video_backend())'
+ffmpeg -version
+PYTHONPATH="$PWD/src" "$LEROBOT_PYTHON" -m pytest tests/optional/test_lerobot_act_smoke.py
+```
+
+- The checked-in Linux CUDA training container currently pins Torch 2.7.1, torchvision 0.22.1, and TorchCodec 0.5.0 for CUDA 12.8. Treat that as a matched container stack, not a command to replace packages in your existing LeRobot environment. If the import/backend check fails, recreate a dedicated training environment/container with the compatible stack and repeat the readiness/CPU smoke checks; keep the LeRobot environment used for calibrated hardware separate until the replacement is verified.
 
 ### UI shows no runs, or CLI rate does not match the screen
 
-- Confirm the server's `--outputs-root` points to the exact parent containing `exp-900-mock-baseline` and `exp-901-mock-candidate`, and that there is only one writer server for that directory.
-- Refresh after saving; `report.py` writes a static snapshot only when re-run. Verify both UI and CLI read the same run directory and `labels.json` revision.
-- A 409 means the browser's expected revision is stale. Reload and verify latest labels before reapplying. If the reviewed count is zero, an unavailable rate is correct. Pending and excluded episodes do not enter metrics.
-- Native LeRobot folder not appearing is expected: it is not the LaundryBench run schema.
+- For a physical rollout config using `outputs/physical/<EXPERIMENT_ID>`, serve `projects/laundrybench/outputs/physical` as `--outputs-root`; the UI lists runs immediately inside that directory. Use one writer server for the root.
+- Refresh after saving; `report.py` writes its static snapshot only when rerun. Verify UI and report point to the same rollout directory and `labels.json` revision.
+- A 409 means the browser's expected revision is stale. Reload and verify latest labels before reapplying. If reviewed count is zero, unavailable success rate is correct. Pending and excluded episodes do not enter reviewed metrics.
+- If the physical run does not appear, inspect the rollout config's resolved `output_dir` and serve its parent. Do not point the UI at the native dataset root; the rollout wrapper already creates the LaundryBench run itself.
 
-### Empty / incomplete LeRobot dataset or upload surprise
+### Recording failed, dataset is incomplete, or fingerprint differs
 
-- `--dataset.num_episodes` is the requested number, not proof that those episodes were valid. Check process completion, cached dataset path, metadata, episode count, video streams and viewer. If the shell exits early, inspect the terminal error and do not train on partial data.
-- Start new collections with a unique repo_id; avoid reusing/stamping confusion. Current LeRobot may timestamp the repo ID by default. Save the exact final name printed at completion.
-- Use `--dataset.push_to_hub=false` only if supported by the exact version. If a private repo is necessary for cloud access, authenticate intentionally and confirm visibility before upload. Hub tokens stay out of source and chat.
+- Recording needs a new dataset root and separate manifest path each attempt; the wrapper refuses overwrite and resume. Read manifest `status`, `return_code`, `error`, and LeRobot output before continuing.
+- Do not train on a partial/failed tree. Verify the metadata contract is `validated`, dataset root contains `meta/`, `data/` and `videos/`, and the dataset digest matches a fresh `--fingerprint-dataset` result.
+- A dataset copy must be complete and unmodified. Any added/deleted/changed file changes its digest; rerun fingerprint and update config only after intentionally freezing the new dataset revision.
+- Recording always sets `--dataset.push_to_hub=false`. The cloud wrapper does not upload the dataset: upload it yourself to a private Hub dataset repo, use the exact commit SHA in `training.dataset_revision`, and let the wrapper verify that private snapshot matches the local recording digest. If verification fails, stop and check repo visibility, commit SHA, and whether the complete `meta/`, `data/`, and `videos/` tree was uploaded. Do not put tokens in source/chat.
 
-### `lerobot-record` / `lerobot-rollout` flag mismatch
+### Training or rollout contract mismatch
 
-- LeRobot v0.5.x uses legacy behavior; v0.6.x provides `lerobot-rollout`. Check `python -c` package version and `command -v` for every executable. Capture command `--help`; don't mix current docs flags into an older CLI. In v0.6.1, current docs show `lerobot-record` with `--robot.id` and `--teleop.id`; the rollout docs use `--strategy.type=base` for no-record eval and `episodic` for saved eval episodes.
-- If rolling out a policy that has different camera feature keys, size, joint ordering/units, or processors from the dataset, stop before motion and resolve the checkpoint/config mismatch.
+- The wrappers pin LeRobot 0.6.1; inspect the selected `lerobot-python` and `--help` in the same environment. Do not bypass the checked wrapper with an unrelated `lerobot-rollout` command.
+- Training requires the completed recording manifest, matching content and metadata hashes, explicit state/action names/units and matching dataset FPS. A config that merely asserts a contract is not enough.
+- Rollout dry-run prints a mismatch before hardware connect. Check the checkpoint's local `policy_contract.json`, dataset revision, processor digests, camera names/dimensions, and `runtime.control_hz`. Fix config or train from the intended data before physical execution.
+- If local output directory already exists, use a new unique path; do not delete evidence to rerun.
 
 ## Experiment note to leave after a session
 
@@ -482,4 +565,4 @@ LeRobot CLI syntax is version-sensitive. These Hugging Face sources were checked
 - [LeRobot dataset visualization guide](https://huggingface.co/docs/lerobot/v0.6.1/using_dataset_tools)
 - [LeRobot v0.6.1 ACT guide](https://huggingface.co/docs/lerobot/v0.6.1/act)
 
-Repository references: `skills/so101-bringup/SKILL.md`; `skills/laundrybench-engineering/SKILL.md`; `docs/plans/so101-readiness.md`; `docs/architecture/so101-adapter.md`; `docs/architecture/results-application.md`; `docs/architecture/media-contract.md`; `docs/architecture/experiment-context.md`; `projects/laundrybench/scripts/{record.py,train.py,run_policy.py,evaluate.py,report.py,import_media.py}`; `projects/laundrybench/configs/*.yaml`.
+Repository anchors: `skills/so101-bringup/SKILL.md`; `skills/laundrybench-engineering/SKILL.md`; `docs/architecture/{recording-workflow.md,training-workflow.md,act-rollout.md,physical-evidence.md}`; `projects/laundrybench/scripts/{record.py,train.py,run_policy.py}`.

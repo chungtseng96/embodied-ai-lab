@@ -1,5 +1,14 @@
 # LaundryBench V1 Contract Hardening Implementation Plan
 
+> **Implementation update — 2026-11-02:** The historical deferred recording,
+> ACT training, and trained-policy rollout items below now have software
+> implementations. See the [home feedback-loop playbook](../playbooks/so101-home-feedback-loop.md)
+> and the recording, training, rollout, and evidence contracts in
+> `docs/architecture/`. JWA-16, JWA-17, and JWA-23 retain physical/GPU acceptance
+> gates. The [EXP-003 acceptance plan](../../projects/laundrybench/experiments/exp-003-physical-feedback-loop/README.md)
+> records zero physical attempts; software compatibility tests are not robot
+> task-performance evidence.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Make the LaundryBench software contracts (robot, policy, judge, loop timing, configs, evidence) strong enough that the first physical experiment only has to fill in hardware values, not redesign interfaces.

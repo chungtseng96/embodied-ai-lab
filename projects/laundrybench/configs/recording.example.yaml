@@ -1,0 +1,28 @@
+# Review and replace every device-specific value before --execute.
+# This file is separate from the mock-first robot.yaml / camera.yaml configs.
+recording:
+  follower_port: /dev/ttyACM_FOLLOWER
+  follower_id: so101_follower_example_id
+  follower_calibration_file: ~/.cache/huggingface/lerobot/calibration/robots/so_follower/so101_follower_example_id.json
+  leader_port: /dev/ttyACM_LEADER
+  leader_id: so101_leader_example_id
+  leader_calibration_file: ~/.cache/huggingface/lerobot/calibration/teleoperators/so_leader/so101_leader_example_id.json
+  camera:
+    name: front
+    index_or_path: 0
+    width: 640
+    height: 480
+    fps: 15
+  dataset:
+    repo_id: local-user/laundrybench_sock_smoke
+    fps: 15
+    root: ../outputs/recordings/laundrybench_sock_smoke
+    manifest_path: ../outputs/recordings/laundrybench_sock_smoke.recording.json
+  episodes: 2
+  episode_time_s: 30
+  reset_time_s: 30
+  task: Identify a sock, pick it up, and place it in the sock basket.
+  lerobot:
+    python: ../../../.venv-lerobot/bin/python
+    home: ~/.cache/huggingface/lerobot
+    version: 0.6.1

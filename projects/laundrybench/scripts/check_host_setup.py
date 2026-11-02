@@ -76,7 +76,7 @@ def main() -> None:
             "docker_daemon": docker_daemon,
             "docker-compose": _tool("docker-compose"),
             "uv": _tool("uv"),
-            "ffmpeg": _tool("ffmpeg"),
+            "ffmpeg": _tool("ffmpeg", "-version"),
             "git-lfs": _tool("git-lfs"),
             "hf": _tool("hf"),
             "lelab": _tool("lelab"),

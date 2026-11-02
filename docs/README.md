@@ -12,6 +12,7 @@
 | Start a new experiment or learning note | `templates/experiment.md`, `templates/learning-note.md` |
 | Prepare for hardware bring-up or cloud training | `plans/so101-readiness.md`, `architecture/robot-learning-development-environment.md`, then repository-root `skills/so101-bringup/SKILL.md` |
 | Set up a calibrated SO-101 at home and understand the complete feedback loop | [`playbooks/so101-home-feedback-loop.md`](playbooks/so101-home-feedback-loop.md) |
+| Inspect the physical recording, ACT training, rollout, and capture contracts | [`architecture/recording-workflow.md`](architecture/recording-workflow.md), [`architecture/training-workflow.md`](architecture/training-workflow.md), [`architecture/act-rollout.md`](architecture/act-rollout.md), [`architecture/physical-evidence.md`](architecture/physical-evidence.md) |
 | Find a design or work plan | `plans/` (prefer date-prefixed names for new plans) |
 
 Not under `docs/`: paper notes and study plans live in `notes/`; hands-on exercises in `labs/`;
