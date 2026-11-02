@@ -2,6 +2,7 @@
 
 | I want to... | Read |
 |--------------|------|
+| Start an agent task or hand off a reviewed change | [`agent-guide.md`](agent-guide.md), then the applicable `AGENTS.md` and skill |
 | Learn or review a robotics concept | `fundamentals/` (one concept per file, uses `templates/learning-note.md`) |
 | Look something up fast while debugging or interviewing | `cheatsheets/robotics.md`, `cheatsheets/lerobot.md` |
 | Understand how V1 fits together | `architecture/v1-architecture.md` |

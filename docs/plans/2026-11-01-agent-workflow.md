@@ -63,8 +63,11 @@ used by CI; it does not print a GATE PASS marker.
    Edit/Write calls, not every shell command. CI is the shared verification
    gate; hooks are local assistance, not a security boundary.
 3. **Evidence needs consistent adoption.** A default PR template now records
-   validation, independent findings and human decisions. The next pilot must
-   demonstrate its use on a shipped change rather than leaving evidence in chats.
+   validation, independent findings and human decisions. The JWA-16/17/23
+   implementation in [PR #35](https://github.com/chungtseng96/embodied-ai-lab/pull/35)
+   is the shipped pilot; the [engineering case study](../agent-guide.md#case-study-pr-35)
+   links its implementation and check definitions. The PR's [check results](https://github.com/chungtseng96/embodied-ai-lab/pull/35/checks)
+   are the source for CI status; this plan does not infer a result from the local checkout.
 4. **The factory briefs are tied to one historical plan.** Generalizing them
    should follow the next actual task, using an issue's acceptance criteria and
    touched boundaries. A good reviewer should check behavior and missing cases,
@@ -78,9 +81,9 @@ that a historical agent run was unreviewed or that a hook failed in practice.
 | Order | Change | Acceptance evidence |
 | --- | --- | --- |
 | Implemented | Concise PR evidence template | A new PR records issue/spec, commands, limitations and agent/human responsibilities |
-| Next product change | Pilot the template on results UI work | Screenshot, regenerated report from declared mock input, checks on final SHA, independent review findings |
+| Implemented | Pilot the evidence template on the recording, ACT training, and rollout change | [PR #35](https://github.com/chungtseng96/embodied-ai-lab/pull/35), check links and concrete edge cases in the [case study](../agent-guide.md#case-study-pr-35) |
 | Next hardware change | Pilot on adapter or recording wrapper | Dry-run/config tests plus an explicitly operator-run hardware check; no fabricated hardware pass |
-| After two pilots | Capture a short engineering case study | Links to issue, commits, review findings, corrected defect and result; actual time/cost only if available |
+| After hardware pilot | Review whether another brief case study would add evidence | Current software pilot is summarized in the [PR #35 case study](../agent-guide.md#case-study-pr-35); add only verified hardware evidence and measured data |
 | Only if handoffs are recurring work | Add a small deterministic runner | Resumable state, bounded retry, final-SHA checks, isolated worktree and explicit human merge gate |
 
 Use the existing factory rework tally; add elapsed time, model/version, or

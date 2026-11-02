@@ -39,6 +39,10 @@ reproduce it.
 
 Documentation navigation is in [`docs/README.md`](docs/README.md).
 Use the PR template to report evidence and distinguish mock checks from physical validation.
+New agents can start with [`docs/agent-guide.md`](docs/agent-guide.md) for task
+routing, exact check commands, worktree ownership, and handoff evidence. It
+points back to these instructions and the relevant skills; it does not replace
+them.
 
 ## Repository map
 
