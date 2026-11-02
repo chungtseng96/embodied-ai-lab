@@ -69,14 +69,14 @@ embodied-ai-lab/
 
 ## Current status
 
-- SO-101 leader/follower hardware ordered
-- External USB camera ordered
+- SO-101 bring-up guide is for an already calibrated arm; physical hardware acceptance is host-specific and pending
+- LaundryBench record/train/ACT rollout wrappers and camera evidence path are implemented; no physical end-to-end run or task-success claim has been validated
 - Mock robot/policy architecture in place
 - Evaluation runner, metrics, and structured logging in place
 - React results application and persistent manual review labels available
 - Run-context sidecars and compatibility-aware comparisons are implemented; reviewer keyboard controls and browser acceptance are in PR #32
 - Browser acceptance runs in GitHub Actions; see [PR #32 checks](https://github.com/chungtseng96/embodied-ai-lab/pull/32/checks) for the latest result
-- SO-101 adapter implemented with offline tests; device verification pending
+- SO-101 adapter, normalized ACT contract, supervised rollout and live camera evidence capture implemented with offline/synthetic tests; calibrated-device compatibility and task performance remain unverified
 
 ## Quick start: mock software loop
 
@@ -123,7 +123,20 @@ make check
 make demo
 ```
 
-The mock implementation exists only to exercise the software boundaries before the physical robot arrives. Mock results are **not** robot performance claims.
+The mock implementation exercises software contracts and enables repeatable synthetic UI review. Mock results are **not** robot performance claims.
+
+## Physical feedback pipeline: inspect before executing
+
+The physical pipeline is implemented behind explicit configs and flags. Start with the [SO-101 home feedback loop playbook](docs/playbooks/so101-home-feedback-loop.md), which separates the runnable synthetic UI loop from physical acceptance and gives the record → train → bounded rollout → review workflow. Copy and replace the device-specific examples before using them. After activating the LaundryBench environment from the quick start, run these CLI help commands from `projects/laundrybench`; they do not connect hardware:
+
+```bash
+cd projects/laundrybench
+python scripts/record.py --help
+python scripts/train.py --help
+python scripts/run_policy.py --help
+```
+
+Physical recording requires `--execute --supervised` in a foreground terminal and uses distinct calibrated follower and leader roles. Training requires a completed dataset/recording manifest and an explicit train execute flag; rollout has a contract-checking dry run and requires `--execute --supervised` for hardware. Hardware acceptance, actual ACT training, camera timing and laundry task success remain unverified here. See the [recording](docs/architecture/recording-workflow.md), [training](docs/architecture/training-workflow.md), and [rollout](docs/architecture/act-rollout.md) details.
 
 ## Engineering workflow
 

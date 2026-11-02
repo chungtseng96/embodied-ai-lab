@@ -21,7 +21,10 @@ def run_episode(
     clock: Callable[[], float] = time.perf_counter,
     sleep: Callable[[float], None] = time.sleep,
     episode_id: str | None = None,
+    on_observation: Callable[[str, int, Observation], None] | None = None,
     on_step: Callable[[str, int, Observation, Action], None] | None = None,
+    on_apply: Callable[[str, int, Observation, Action], None] | None = None,
+    refresh_observation_before_action: bool = False,
 ) -> EpisodeResult:
     """Run one closed-loop episode paced at ``control_hz`` and bounded by ``timeout_s``.
 
@@ -31,7 +34,10 @@ def run_episode(
     result; a random UUID is used when it is not given.
     ``on_step``, when given, is called once per step with the episode id, the
     step index, the pre-action observation, and the action, before the robot
-    applies the action.
+    applies the action. ``on_apply`` runs immediately after ``robot.apply``.
+    With ``refresh_observation_before_action=True``, acquire a fresh observation
+    after pacing and before each subsequent policy call; the default keeps the
+    mock runner's original observation cadence.
     """
 
     if not math.isfinite(control_hz):
@@ -57,10 +63,24 @@ def run_episode(
         observation = robot.observe()
 
         while steps < max_iterations and clock() - start < timeout_s:
+            if on_observation is not None:
+                on_observation(episode_id, steps, observation)
             action = policy.act(observation)
+            action_ready_at = clock()
+            if action_ready_at - start >= timeout_s:
+                success = judge.on_timeout(observation)
+                return EpisodeResult(
+                    episode_id=episode_id,
+                    success=success,
+                    duration_s=action_ready_at - start,
+                    failure_category=None if success else judge.failure_category,
+                    metadata={"steps": steps, "policy": policy.name, "control_hz": control_hz},
+                )
             if on_step is not None:
                 on_step(episode_id, steps, observation, action)
             robot.apply(action)
+            if on_apply is not None:
+                on_apply(episode_id, steps, observation, action)
             observation = robot.observe()
             steps += 1
 
@@ -74,6 +94,8 @@ def run_episode(
 
             next_tick += period_s
             sleep(max(0.0, next_tick - clock()))
+            if refresh_observation_before_action and steps < max_iterations:
+                observation = robot.observe()
 
         success = judge.on_timeout(observation)
         return EpisodeResult(

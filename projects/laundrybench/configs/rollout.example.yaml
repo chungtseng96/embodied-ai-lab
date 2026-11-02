@@ -1,0 +1,35 @@
+# Copy this file to a local-only config and replace every value before an
+# operator-supervised run. Paths must point to a completed local LeRobot ACT
+# checkpoint emitted by scripts/train.py, including policy_contract.json.
+experiment_id: exp-001-act-physical
+task:
+  id: sock_sorting_v1
+  version: "1"
+protocol:
+  id: sock_sort_collection
+  version: "1"
+dataset:
+  id: local-sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+  revision: local-sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+  fps: 15
+checkpoint:
+  path: /replace/with/local/act-checkpoint
+  contract_path: /replace/with/local/act-checkpoint/policy_contract.json
+  identity: exp-train-001/checkpoint-10000
+runtime:
+  episodes: 3
+  control_hz: 15
+  timeout_s: 15
+  # In normalized SO-101 coordinates: 1.0 means one unit, not one degree.
+  max_relative_target: 1.0
+  device: cpu
+robot:
+  port: /dev/serial/by-id/replace-with-calibrated-follower
+  id: replace-with-existing-calibration-id
+cameras:
+  front:
+    index_or_path: 0
+    width: 640
+    height: 480
+    fps: 15
+output_dir: ../outputs/physical/exp-001-act-physical

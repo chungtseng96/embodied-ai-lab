@@ -1,0 +1,36 @@
+# LeRobot 0.6.1 ACT training target. Build on a Linux NVIDIA host with Docker
+# BuildKit/NVIDIA Container Toolkit; this image is not a robot-control image.
+FROM nvidia/cuda:12.8.1-cudnn-runtime-ubuntu24.04
+
+ARG LAUNDRYBENCH_SOURCE_SHA
+
+ENV DEBIAN_FRONTEND=noninteractive \
+    PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+      python3.12 python3.12-venv python3-pip git ffmpeg ca-certificates \
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /workspace/laundrybench
+COPY pyproject.toml README.md ./
+COPY src ./src
+COPY scripts ./scripts
+
+RUN python3.12 -m pip install --break-system-packages --no-cache-dir \
+      --index-url https://download.pytorch.org/whl/cu128 \
+      'torch==2.7.1' 'torchvision==0.22.1' \
+    && printf 'torch==2.7.1\ntorchvision==0.22.1\ntorchcodec==0.5.0\n' \
+      > /tmp/lerobot-training-constraints.txt \
+    && python3.12 -m pip install --break-system-packages --no-cache-dir \
+      --constraint /tmp/lerobot-training-constraints.txt \
+      'lerobot[training]==0.6.1' \
+    && python3.12 -m pip install --break-system-packages --no-cache-dir \
+      --no-deps --index-url https://download.pytorch.org/whl/cu128 \
+      'torchcodec==0.5.0' \
+    && python3.12 -m pip install --break-system-packages --no-cache-dir -e .
+
+ENV PYTHONPATH=/workspace/laundrybench/src
+ENV LAUNDRYBENCH_SOURCE_SHA=${LAUNDRYBENCH_SOURCE_SHA}
+ENTRYPOINT ["python3.12", "scripts/train.py"]
+CMD ["--help"]

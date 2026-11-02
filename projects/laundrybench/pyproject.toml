@@ -13,6 +13,7 @@ dependencies = [
 
 [project.optional-dependencies]
 dev = [
+  "numpy>=1.26,<3",
   "pytest>=8.0",
   "ruff>=0.6",
 ]

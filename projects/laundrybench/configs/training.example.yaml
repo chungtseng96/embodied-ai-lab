@@ -1,0 +1,58 @@
+# Copy this file and replace the dataset identity, revision, root, feature names,
+# camera profile, and output directory with values from the exact collected set.
+training:
+  dataset_id: local-sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+  dataset_repo_id: local-user/laundrybench_sock_smoke
+  dataset_revision: local-sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+  dataset_root: ../outputs/recordings/laundrybench_sock_smoke
+  dataset_manifest: ../outputs/recordings/laundrybench_sock_smoke.recording.json
+  output_dir: ../outputs/train/act-so101-sock-sort-v1
+  steps: 20000
+  batch_size: 8
+  seed: 7
+  device: cuda
+  control_hz: 15
+  mode: local
+
+task:
+  id: sock_sorting_v1
+  version: "1"
+
+protocol:
+  id: sock_sort_collection
+  version: "1"
+
+contract:
+  # These metadata names must exactly match meta/info.json (SO-101 .pos keys).
+  state_names:
+    - shoulder_pan.pos
+    - shoulder_lift.pos
+    - elbow_flex.pos
+    - wrist_flex.pos
+    - wrist_roll.pos
+    - gripper.pos
+  state_units: [normalized, normalized, normalized, normalized, normalized, normalized]
+  action_names:
+    - shoulder_pan.pos
+    - shoulder_lift.pos
+    - elbow_flex.pos
+    - wrist_flex.pos
+    - wrist_roll.pos
+    - gripper.pos
+  action_units: [normalized, normalized, normalized, normalized, normalized, normalized]
+  joint_names: [shoulder_pan, shoulder_lift, elbow_flex, wrist_flex, wrist_roll, gripper]
+  use_degrees: false
+  # These are policy I/O coordinates. LeRobot's saved processor files record
+  # its actual dataset-statistics normalization used inside the model pipeline.
+  normalization:
+    coordinate_space: normalized
+    state_min: [-100, -100, -100, -100, -100, 0]
+    state_max: [100, 100, 100, 100, 100, 100]
+    action_min: [-100, -100, -100, -100, -100, 0]
+    action_max: [100, 100, 100, 100, 100, 100]
+  cameras:
+    front:
+      width: 640
+      height: 480
+      color: RGB
+      dtype: uint8
