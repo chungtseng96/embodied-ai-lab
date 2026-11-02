@@ -2,11 +2,10 @@
 
 ## Project purpose
 
-Embodied AI Lab is a portfolio repository for building and evaluating a small
-robot-learning system around an SO-101 arm. LaundryBench is the flagship
-project. The repository should show engineering judgment across hardware
-integration, data collection, policy execution, evaluation, observability,
-and reproducible experiments.
+Embodied AI Lab develops robotics systems for manipulation, policy evaluation,
+and reproducible experimentation. LaundryBench is the first project, built
+around an SO-101 arm. Each project owns its code, dependencies, configuration,
+tests, experiments, architecture, and operating documentation.
 
 Treat the repository as an engineering project that happens to use AI agents.
 Keep the canonical workflow in versioned Python modules, CLI scripts,
@@ -21,8 +20,8 @@ reproduce it.
   Check it before starting work and reference the issue key in branch names
   and commit messages when one exists.
 - Execution detail for the current engineering push lives in
-  `docs/plans/2026-10-31-laundrybench-v1-implementation.md`; design findings
-  and their status live in `docs/plans/2026-10-31-laundrybench-design-review.md`.
+  `projects/laundrybench/docs/plans/2026-10-31-laundrybench-v1-implementation.md`; design findings
+  and their status live in `projects/laundrybench/docs/plans/2026-10-31-laundrybench-design-review.md`.
 - GitHub remote is the personal account `chungtseng96`, not a work account.
   Git pushes use a repo-local credential helper for that account. The `gh`
   CLI's active login may be a different account, so run `gh` commands for
@@ -54,10 +53,9 @@ them.
 - `projects/laundrybench/configs/`: checked-in YAML configuration.
 - `projects/laundrybench/experiments/`: experiment plans, evidence, and
   failure analysis.
-- `labs/`: small learning exercises that may precede production-facing
-  adapters.
-- `docs/architecture/`: system design and architectural decisions.
-- `docs/plans/`: readiness and execution plans.
+- `projects/laundrybench/docs/`: project architecture, decisions, and playbooks.
+- `docs/`: shared engineering guidance and templates.
+- `projects/README.md`: project catalog and ownership conventions.
 - `skills/`: repository-local agent workflows. Read the relevant
   skill before performing a repeated workflow.
 

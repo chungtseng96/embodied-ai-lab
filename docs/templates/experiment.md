@@ -10,7 +10,7 @@
 
 ## Question
 
-What are we trying to learn?
+Which measurable behavior or failure mode does this experiment investigate?
 
 ## Hypothesis
 

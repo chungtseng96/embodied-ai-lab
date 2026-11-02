@@ -1433,7 +1433,7 @@ export default function App({
             L<span>↗</span>
           </span>
           <span>
-            LaundryBench<small>ROBOT LEARNING LAB</small>
+            LaundryBench<small>EMBODIED AI LAB</small>
           </span>
         </a>
         <div className="nav-label">{readOnly ? "SHOWCASE" : "WORKSPACE"}</div>

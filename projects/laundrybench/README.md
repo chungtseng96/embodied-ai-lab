@@ -1,6 +1,7 @@
 # LaundryBench
 
-LaundryBench is the flagship embodied-AI project in this repository.
+LaundryBench is the first project in Embodied AI Lab: a laundry manipulation
+benchmark and evaluation workbench for an SO-101 arm.
 
 ## V1 task
 
@@ -51,7 +52,7 @@ Observation
 
 The interfaces are intentionally model-agnostic; a supervised LeRobot 0.6.1 ACT path is now implemented through recording, contract-bound training, bounded rollout, and LaundryBench evidence review. Hardware acceptance remains pending.
 
-## Current code layout
+## Project layout
 
 ```text
 src/laundrybench/
@@ -90,7 +91,7 @@ The physical path is separate from mock-first `robot.yaml` / `camera.yaml`:
 - `configs/rollout.example.yaml` + `scripts/run_policy.py`: checkpoint/processor contract validation, bounded supervised ACT execution, LaundryBench traces and camera evidence.
 - `scripts/serve.py` + `scripts/report.py`: human-review labels and reviewed-only metrics for the physical run directory.
 
-Start with [the SO-101 home feedback loop guide](../../docs/playbooks/so101-home-feedback-loop.md), which explains exact setup, dry-run commands, expected artifacts, review, and troubleshooting. Inspect the safe CLI surfaces from this project directory:
+Start with [the SO-101 home feedback loop guide](docs/playbooks/so101-home-feedback-loop.md), which explains exact setup, dry-run commands, expected artifacts, review, and troubleshooting. Inspect the safe CLI surfaces from this project directory:
 
 ```bash
 python scripts/record.py --help
@@ -102,9 +103,9 @@ Record and rollout require explicit `--execute --supervised`; recording also req
 
 ## Plan of record
 
-The [V1 implementation plan](../../docs/plans/2026-10-31-laundrybench-v1-implementation.md) and [V1 design review](../../docs/plans/2026-10-31-laundrybench-design-review.md) track broader project work. The next physical gate is operator-run acceptance on the calibrated device, including camera freshness/capture timing, checkpoint inference, stop/reconnect behavior, and manually reviewed task outcomes.
+The [V1 implementation plan](docs/plans/2026-10-31-laundrybench-v1-implementation.md) and [V1 design review](docs/plans/2026-10-31-laundrybench-design-review.md) track broader project work. The next physical gate is operator-run acceptance on the calibrated device, including camera freshness/capture timing, checkpoint inference, stop/reconnect behavior, and manually reviewed task outcomes.
 
-## What this project should demonstrate
+## System responsibilities
 
 - robot data collection
 - clean hardware/model abstractions
@@ -114,7 +115,7 @@ The [V1 implementation plan](../../docs/plans/2026-10-31-laundrybench-v1-impleme
 - observability across video, robot state, and outcomes
 - disciplined model/data iteration
 
-## Planned progression
+## Candidate task extensions
 
 1. Sock vs non-sock
 2. Multiple socks/colors/styles
@@ -122,3 +123,15 @@ The [V1 implementation plan](../../docs/plans/2026-10-31-laundrybench-v1-impleme
 4. Cluttered laundry pile
 5. Flatten/orient garments
 6. Folding with two arms
+
+## Documentation and ownership
+
+- [Documentation index](docs/README.md): architecture, operating guides, and plans.
+- [Milestones](ROADMAP.md): current software capabilities and physical acceptance gates.
+- `configs/`: task, robot, camera, recording, training, and rollout inputs.
+- `scripts/`: CLI entry points for operators and automation.
+- `frontend/`: results and episode-review application.
+- `tests/` and `e2e/`: Python contracts and browser acceptance.
+- `experiments/`: hypotheses, protocols, and recorded evidence.
+
+Datasets, checkpoints, videos, and generated run directories stay outside Git.

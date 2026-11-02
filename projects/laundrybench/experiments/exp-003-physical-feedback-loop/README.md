@@ -18,7 +18,7 @@ tests the feedback-loop plumbing; it does not predict a trained success rate.
 
 ## Inputs and identity
 
-Use the [home playbook](../../../../docs/playbooks/so101-home-feedback-loop.md).
+Use the [home playbook](../../docs/playbooks/so101-home-feedback-loop.md).
 Copy the recording, training, and rollout example configs; retain the completed
 recording manifest, portable dataset content identity, training manifest, and
 checkpoint contract. Record the exact source commit and selected LeRobot 0.6.1

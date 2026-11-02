@@ -108,7 +108,7 @@ export default function Showcase() {
             L<span>↗</span>
           </span>
           <span>
-            LaundryBench<small>ROBOT LEARNING LAB</small>
+            LaundryBench<small>EMBODIED AI LAB</small>
           </span>
         </a>
         <a className="showcase-header-link" href="#explorer">
@@ -120,7 +120,7 @@ export default function Showcase() {
         <section className="showcase-hero" aria-labelledby="showcase-title">
           <div className="showcase-hero-copy">
             <p className="showcase-kicker">
-              <span /> A small robot learning system, built to be inspected
+              <span /> Robotic manipulation with traceable experimental evidence
             </p>
             <h1 id="showcase-title">
               Can a robot sort socks from the rest of the laundry?
@@ -244,11 +244,11 @@ export default function Showcase() {
           aria-labelledby="contribution-title"
         >
           <div className="section-intro">
-            <p className="showcase-overline">WHAT I OWNED</p>
+            <p className="showcase-overline">SYSTEM CAPABILITIES</p>
             <h2 id="contribution-title">The work is in the evaluation loop.</h2>
             <p>
-              I built the software that makes small robot experiments easier to
-              run, compare, audit, and learn from.
+              LaundryBench connects experiment execution, comparison, and review
+              through a consistent evidence contract.
             </p>
           </div>
           <div className="contribution-grid">
@@ -331,7 +331,7 @@ export default function Showcase() {
               →
             </span>
             <div className="architecture-node architecture-node-accent">
-              <small>04 · LEARN</small>
+              <small>04 · EVALUATE</small>
               <strong>Review + metrics</strong>
               <span>Compare with context</span>
             </div>
@@ -404,7 +404,7 @@ export default function Showcase() {
               Code, experiments, and limits in the open.
             </h2>
             <p>
-              This portfolio view is an exported snapshot of one source commit.
+              This evidence view is an exported snapshot of one source commit.
               Inspect the source or open the exact experiment records below.
             </p>
           </div>
@@ -491,7 +491,7 @@ export default function Showcase() {
       </main>
       <footer className="showcase-footer">
         <span>LAUNDRYBENCH</span>
-        <p>Inspectable robot learning experiments.</p>
+        <p>Reproducible robotic manipulation experiments.</p>
         <a href="#top">Back to top ↑</a>
       </footer>
     </div>
