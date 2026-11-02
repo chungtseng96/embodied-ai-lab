@@ -150,11 +150,79 @@ export class ApiError extends Error {
     super(message);
   }
 }
+export function mapShowcaseRequest(
+  path: string,
+  options?: RequestInit,
+): string {
+  const method = (options?.method || "GET").toUpperCase();
+  if (method !== "GET") {
+    throw new ApiError(
+      "This showcase is read only. Write requests are disabled.",
+      405,
+    );
+  }
+  if (!path.startsWith("/api/") || path.startsWith("//")) {
+    throw new ApiError("Unsupported request in the static showcase.", 400);
+  }
+  const queryIndex = path.indexOf("?");
+  const pathname = queryIndex < 0 ? path : path.slice(0, queryIndex);
+  const query = queryIndex < 0 ? "" : path.slice(queryIndex + 1);
+  const pathSegments = pathname.split("/");
+  let decodedSegments: string[];
+  try {
+    decodedSegments = pathSegments.map((segment) =>
+      decodeURIComponent(segment),
+    );
+  } catch {
+    throw new ApiError("Malformed request path in the static showcase.", 400);
+  }
+  if (
+    pathname.includes("//") ||
+    decodedSegments.some(
+      (segment) =>
+        segment.includes("/") ||
+        segment.includes("\\") ||
+        segment === "." ||
+        segment === "..",
+    )
+  ) {
+    throw new ApiError("Unsupported request path in the static showcase.", 400);
+  }
+  const isKnownRoute =
+    /^\/api\/runs$/.test(pathname) ||
+    /^\/api\/runs\/[^/]+$/.test(pathname) ||
+    /^\/api\/runs\/[^/]+\/compare\/[^/]+$/.test(pathname) ||
+    /^\/api\/runs\/[^/]+\/episodes\/[^/]+\/(trace|media)$/.test(pathname);
+  if (!isKnownRoute) {
+    throw new ApiError("Unsupported request path in the static showcase.", 400);
+  }
+  let suffix = ".json";
+  if (queryIndex >= 0) {
+    if (
+      !pathname.match(/^\/api\/runs\/[^/]+\/compare\/[^/]+$/) ||
+      query !== "acknowledge_incompatible=1"
+    ) {
+      throw new ApiError(
+        "Unsupported query parameters in the static showcase.",
+        400,
+      );
+    }
+    suffix = ".acknowledged.json";
+  }
+  return `/data${pathname.slice(4)}${suffix}`;
+}
+
 export async function request<T>(
   path: string,
   options?: RequestInit,
 ): Promise<T> {
-  const response = await fetch(path, options);
+  const showcase =
+    (import.meta as ImportMeta & { env?: { VITE_SHOWCASE?: string } }).env
+      ?.VITE_SHOWCASE === "1";
+  const response = await fetch(
+    showcase ? mapShowcaseRequest(path, options) : path,
+    showcase ? { method: "GET", headers: options?.headers } : options,
+  );
   if (!response.ok) {
     let message = `Request failed (${response.status})`;
     try {

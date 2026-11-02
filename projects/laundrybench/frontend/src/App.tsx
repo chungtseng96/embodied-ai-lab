@@ -398,6 +398,59 @@ function EpisodeReview({
   );
 }
 
+function ReadOnlyReview({ episode }: { episode: Episode }) {
+  return (
+    <section className="readonly-review panel" aria-label="Review record">
+      <div className="section-heading">
+        <h3>Review record</h3>
+        <span className="pill">Read only</span>
+      </div>
+      <p className="muted small">
+        This exported snapshot preserves both the original outcome and any
+        reviewer decision. No edits can be saved here.
+      </p>
+      <dl>
+        <div>
+          <dt>Review status</dt>
+          <dd>{episode.review_status}</dd>
+        </div>
+        <div>
+          <dt>Original recorded outcome</dt>
+          <dd>
+            {episode.original_outcome.success ? "Success" : "Failure"}
+            {episode.original_outcome.failure_category
+              ? ` · ${episode.original_outcome.failure_category.replaceAll("_", " ")}`
+              : ""}
+            {episode.original_outcome.intervention ? " · intervention" : ""}
+          </dd>
+        </div>
+        <div>
+          <dt>Current reviewed outcome</dt>
+          <dd>
+            {episode.review_status === "reviewed"
+              ? `${episode.effective_outcome.success ? "Success" : "Failure"}${episode.effective_outcome.failure_category ? ` · ${episode.effective_outcome.failure_category.replaceAll("_", " ")}` : ""}${episode.effective_outcome.intervention ? " · intervention" : ""}`
+              : episode.review_status === "excluded"
+                ? "Excluded from metrics"
+                : "Pending review"}
+          </dd>
+        </div>
+        {episode.annotation.notes && (
+          <div>
+            <dt>Reviewer notes</dt>
+            <dd>{episode.annotation.notes}</dd>
+          </div>
+        )}
+        {episode.annotation.exclusion_reason && (
+          <div>
+            <dt>Exclusion reason</dt>
+            <dd>{episode.annotation.exclusion_reason}</dd>
+          </div>
+        )}
+      </dl>
+    </section>
+  );
+}
+
 function contextValue(value: string | null | undefined) {
   return value?.trim() || "Not recorded";
 }
@@ -568,7 +621,12 @@ function FailureComparison({
           No reviewed failure categories in either run.
         </p>
       ) : (
-        <div className="comparison-table-wrap">
+        <div
+          className="comparison-table-wrap"
+          role="region"
+          aria-label="Failure distribution comparison table"
+          tabIndex={0}
+        >
           <table className="comparison-table">
             <thead>
               <tr>
@@ -822,7 +880,12 @@ function RunComparison({
                   ? "Descriptive outcome differences"
                   : "Per-run outcome summaries"}
               </h4>
-              <div className="comparison-table-wrap">
+              <div
+                className="comparison-table-wrap"
+                role="region"
+                aria-label="Outcome comparison table"
+                tabIndex={0}
+              >
                 <table className="comparison-table">
                   <thead>
                     <tr>
@@ -1099,7 +1162,15 @@ function RepresentativeEvidenceComparison({
   );
 }
 
-export default function App() {
+export default function App({
+  initialRunId,
+  initialBaselineId,
+  readOnly = false,
+}: {
+  initialRunId?: string;
+  initialBaselineId?: string;
+  readOnly?: boolean;
+}) {
   const selectedRef = useRef("");
   const dirtyRef = useRef(false);
   const navigationVersionRef = useRef(0);
@@ -1128,7 +1199,7 @@ export default function App() {
     return () => window.removeEventListener("beforeunload", warn);
   }, []);
   const [runs, setRuns] = useState<Run[]>([]),
-    [selected, setSelected] = useState(""),
+    [selected, setSelected] = useState(initialRunId || ""),
     [run, setRun] = useState<Detail | null>(null);
   const [loading, setLoading] = useState(true),
     [detailLoading, setDetailLoading] = useState(false),
@@ -1138,7 +1209,7 @@ export default function App() {
     [episodeSearch, setEpisodeSearch] = useState(""),
     [filter, setFilter] = useState("all"),
     [episodeId, setEpisodeId] = useState(""),
-    [baselineId, setBaselineId] = useState(""),
+    [baselineId, setBaselineId] = useState(initialBaselineId || ""),
     [comparisonSelectionEpoch, setComparisonSelectionEpoch] = useState(0),
     [reload, setReload] = useState(0),
     [notice, setNotice] = useState("");
@@ -1353,8 +1424,9 @@ export default function App() {
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [queuedEpisodes, episode?.episode_id, navigate]);
+  const MainContent = readOnly ? "div" : "main";
   return (
-    <div className="app">
+    <div className={`app ${readOnly ? "readonly-app" : ""}`}>
       <aside className="sidebar">
         <a className="brand" href="#">
           <span className="brand-mark">
@@ -1364,11 +1436,12 @@ export default function App() {
             LaundryBench<small>ROBOT LEARNING LAB</small>
           </span>
         </a>
-        <div className="nav-label">WORKSPACE</div>
+        <div className="nav-label">{readOnly ? "SHOWCASE" : "WORKSPACE"}</div>
         <div className="nav-active">
-          <span>◫</span>Experiment review
+          <span>◫</span>{readOnly ? "Evidence explorer" : "Experiment review"}
           <span className="count">{runs.length}</span>
         </div>
+        {!readOnly && <>
         <div className="sidebar-heading">
           <span>EXPERIMENTS</span>
           <button
@@ -1438,15 +1511,16 @@ export default function App() {
             No robot motion controls.
           </p>
         </div>
+        </>}
       </aside>
-      <main>
+      <MainContent className={readOnly ? "showcase-app-main" : undefined}>
         <div className="topbar">
           <span>
             Workspace <span className="slash">/</span> Experiments
           </span>
           <span className="local-label">
             <span />
-            LOCAL REVIEW
+            {readOnly ? "STATIC SHOWCASE" : "LOCAL REVIEW"}
           </span>
         </div>
         {loading ? (
@@ -1518,7 +1592,7 @@ export default function App() {
                 <ExperimentContext run={run} />
                 {baseline && <ExperimentContext run={baseline} baseline />}
               </div>
-              <details className="run-overview">
+              <details className="run-overview" open={readOnly}>
                 <summary>
                   <span className="overview-title">Run overview</span>
                   <span className="overview-hint">
@@ -1529,7 +1603,7 @@ export default function App() {
                   <span className="muted small">
                     Outcome metrics and recorded configuration
                   </span>
-                  <label className="baseline-picker">
+                  {!readOnly && <label className="baseline-picker">
                     Compare to
                     <select
                       aria-label="Baseline experiment"
@@ -1548,7 +1622,7 @@ export default function App() {
                           </option>
                         ))}
                     </select>
-                  </label>
+                  </label>}
                 </div>
                 <div className="kpis">
                   <div className="kpi">
@@ -1708,7 +1782,9 @@ export default function App() {
                 <div>
                   <h2>Episode workspace</h2>
                   <p className="muted">
-                    Inspect the evidence. Label what actually happened.
+                    {readOnly
+                      ? "Browse the exported evidence and review record."
+                      : "Inspect the evidence. Label what actually happened."}
                   </p>
                 </div>
                 <div
@@ -1846,6 +1922,9 @@ export default function App() {
                   </div>
                 )}
                 {episode ? (
+                  readOnly ? (
+                    <ReadOnlyReview episode={episode} />
+                  ) : (
                   <LabelForm
                     key={`${run.id}/${episode.episode_id}`}
                     run={run}
@@ -1858,15 +1937,18 @@ export default function App() {
                       (item) => item.episode_id,
                     )}
                   />
+                  )
                 ) : (
                   <div className="panel empty-inline form-empty">
-                    Select an episode to add a manual review.
+                    {readOnly
+                      ? "Select an episode to inspect its review record."
+                      : "Select an episode to add a manual review."}
                   </div>
                 )}
               </div>
-              <p className="save-notice" role="status">
+              {!readOnly && <p className="save-notice" role="status">
                 {notice}
-              </p>
+              </p>}
               <details className="provenance">
                 <summary>Full run manifest</summary>
                 <pre>{JSON.stringify(run.manifest, null, 2)}</pre>
@@ -1874,14 +1956,15 @@ export default function App() {
               <footer>
                 LAUNDRYBENCH{" "}
                 <span>
-                  Reproducible experiments. Inspectable evidence. Better robot
-                  behavior.
+                  {readOnly
+                    ? "Synthetic demonstration data. No physical results."
+                    : "Reproducible experiments. Inspectable evidence. Better robot behavior."}
                 </span>
               </footer>
             </div>
           )
         )}
-      </main>
+      </MainContent>
     </div>
   );
 }

@@ -26,12 +26,36 @@ jobs:
       - name: Install browser harness
         working-directory: projects/laundrybench/e2e
         run: npm ci
+      - name: Verify static fixture HTTP range support
+        working-directory: projects/laundrybench/e2e
+        run: python -m unittest test_showcase_fixture_server
       - name: Install Playwright Chromium
         working-directory: projects/laundrybench/e2e
         run: npx playwright install --with-deps chromium
       - name: Run real-backend browser acceptance
         working-directory: projects/laundrybench/e2e
-        run: npm test
+        run: npx playwright test tests/real-backend.spec.ts
+      - name: Build and export the static Showcase
+        working-directory: projects/laundrybench
+        env:
+          SOURCE_COMMIT: ${{ github.sha }}
+        run: |
+          VITE_SHOWCASE=1 npm --prefix frontend run build
+          python scripts/build_showcase.py --output-dir frontend/dist --source-commit "$SOURCE_COMMIT"
+      - name: Run browser acceptance against the static Showcase
+        id: showcase-e2e
+        working-directory: projects/laundrybench/e2e
+        run: npx playwright test tests/showcase.spec.ts
+      - name: Upload successful Showcase demo and trace
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: laundrybench-showcase-demo
+          path: |
+            projects/laundrybench/e2e/test-results/**/showcase-demo.webm
+            projects/laundrybench/e2e/test-results/**/showcase-trace.zip
+          if-no-files-found: ignore
+          retention-days: 14
       - name: Upload browser failure artifacts
         if: failure()
         uses: actions/upload-artifact@v4
