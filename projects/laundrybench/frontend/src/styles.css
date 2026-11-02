@@ -2102,6 +2102,11 @@ kbd {
   width: 100%;
   overflow-x: auto;
 }
+.comparison-table-wrap:focus-visible {
+  outline: 3px solid #3eaaad;
+  outline-offset: 2px;
+  border-radius: 3px;
+}
 .comparison-table {
   width: 100%;
   border-collapse: collapse;

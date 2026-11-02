@@ -202,6 +202,18 @@ test("read-only Showcase walkthrough works on desktop and mobile and records a d
         .slice(0, 30),
     }));
     expect(dimensions.documentWidth, JSON.stringify(dimensions, null, 2)).toBeLessThanOrEqual(dimensions.viewportWidth);
+    const outcomeTable = page.getByRole("region", { name: "Outcome comparison table" });
+    await expect(outcomeTable).toBeVisible();
+    const beforeScroll = await outcomeTable.evaluate((element: HTMLElement) => ({
+      clientWidth: element.clientWidth,
+      scrollWidth: element.scrollWidth,
+      scrollLeft: element.scrollLeft,
+    }));
+    expect(beforeScroll.scrollWidth).toBeGreaterThan(beforeScroll.clientWidth);
+    await outcomeTable.focus();
+    await expect(outcomeTable).toBeFocused();
+    await page.keyboard.press("ArrowRight");
+    await expect.poll(() => outcomeTable.evaluate((element: HTMLElement) => element.scrollLeft)).toBeGreaterThan(beforeScroll.scrollLeft);
     const mobileAxe = await new AxeBuilder({ page })
       .withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"])
       .analyze();

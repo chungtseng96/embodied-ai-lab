@@ -621,7 +621,12 @@ function FailureComparison({
           No reviewed failure categories in either run.
         </p>
       ) : (
-        <div className="comparison-table-wrap">
+        <div
+          className="comparison-table-wrap"
+          role="region"
+          aria-label="Failure distribution comparison table"
+          tabIndex={0}
+        >
           <table className="comparison-table">
             <thead>
               <tr>
@@ -875,7 +880,12 @@ function RunComparison({
                   ? "Descriptive outcome differences"
                   : "Per-run outcome summaries"}
               </h4>
-              <div className="comparison-table-wrap">
+              <div
+                className="comparison-table-wrap"
+                role="region"
+                aria-label="Outcome comparison table"
+                tabIndex={0}
+              >
                 <table className="comparison-table">
                   <thead>
                     <tr>
