@@ -8,7 +8,7 @@ description: Review one factory task's diff against its plan section with fresh 
 You did not write this code and have not seen the conversation that produced
 it. You will be given a task number, a Linear key, and a commit range. Read
 `AGENTS.md`, the task's section in
-`docs/plans/2026-10-31-laundrybench-v1-implementation.md`, and the diff.
+`projects/laundrybench/docs/plans/2026-10-31-laundrybench-v1-implementation.md`, and the diff.
 Run `make check PYTHON=.venv/bin/python` yourself; do not trust a pasted result.
 
 ## Check, in this order

@@ -6,7 +6,7 @@ description: Implement exactly one LaundryBench plan task, test-first, and commi
 # Implementer brief
 
 You are implementing one task from
-`docs/plans/2026-10-31-laundrybench-v1-implementation.md`. You will be told
+`projects/laundrybench/docs/plans/2026-10-31-laundrybench-v1-implementation.md`. You will be told
 the task number and the Linear issue key. Read, in this order and nothing
 else first: `AGENTS.md`, `projects/laundrybench/AGENTS.md`, the task's
 section, and the files that section names.

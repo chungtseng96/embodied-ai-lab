@@ -9,25 +9,15 @@ through agent implementation and independent review, to a reproducible result.
 The useful signal is a reliable product improvement with visible engineering
 judgment. More instruction files or a larger fleet are not acceptance criteria.
 
-## Role alignment
+## Engineering objectives
 
-The linked [Standard Bots Senior Software Engineer, AI Team role](https://jobs.ashbyhq.com/standardbots/9425d9a4-5ebb-46ef-835b-a46fea2e32ed)
-was reviewed on 2026-11-01. It covers AI-adjacent infrastructure and customer
-product surfaces, with approximately 70% backend and 30% frontend work. Data
-pipelines, training/evaluation infrastructure, and perception integration are
-listed areas of ownership. React/TypeScript and Python are in its stack.
-
-That specific posting does not explicitly require an LLM coding workflow.
-Agent-assisted delivery supports the case; an attractive results experience
-and a working data-to-evaluation loop remain the primary portfolio evidence.
-
-| Hiring signal | Repository evidence to build |
+| Objective | Evidence |
 | --- | --- |
-| Product ownership | Results UI that explains an experiment and helps an operator inspect failures |
+| Product operation | Results UI that explains experiments and supports failure inspection |
 | Data quality | Demonstration inspection, explicit exclusions, dataset and configuration identity |
-| ML infrastructure | Reproducible ACT run, checkpoint identity, bounded evaluation and comparison |
+| Reproducibility | Traceable ACT runs, checkpoint identity, bounded evaluation and comparison |
 | Reliable integration | SO-101 adapter, camera/joint contracts, failure handling |
-| Efficient LLM use | One traceable, reviewed change with measured rework and actual validation |
+| Agent-assisted delivery | Scoped changes with review findings and actual validation |
 
 ## Existing foundation to retain
 

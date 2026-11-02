@@ -18,11 +18,11 @@ map to code, tests, and evidence.
 | Change | Implementation route | Test route |
 | --- | --- | --- |
 | Mock robot or core contracts | `projects/laundrybench/src/laundrybench/{robot,policies,evaluation,observability}/`; config in `configs/` | Matching `projects/laundrybench/tests/test_*.py`; mock evaluation entrypoint `scripts/evaluate.py` |
-| Recording | `scripts/record.py`, `src/laundrybench/data/recording.py`, `configs/recording.example.yaml` | `tests/test_recording.py`; physical workflow in `docs/architecture/recording-workflow.md` |
-| ACT training | `scripts/train.py`, `src/laundrybench/training/act.py`, `configs/training.example.yaml` | `tests/test_training.py`; `docs/architecture/training-workflow.md` |
-| ACT policy and rollout | `scripts/run_policy.py`, `src/laundrybench/policies/act.py`, `src/laundrybench/evaluation/physical.py`, `configs/rollout.example.yaml` | `tests/test_act_policy.py`, `tests/test_physical_rollout.py`; `docs/architecture/act-rollout.md` |
-| Capture and evidence | `src/laundrybench/evaluation/capture.py`, `src/laundrybench/evaluation/media.py`, `scripts/import_media.py` | `tests/test_capture.py`, `tests/test_media.py`; `docs/architecture/physical-evidence.md` |
-| Results UI and API | `frontend/src/` for browser behavior; `src/laundrybench/web/` for API/server; `scripts/serve.py` and `scripts/report.py` | `frontend/src/*.test.tsx` / `api.test.ts`; backend `tests/test_web*.py`, `tests/test_report.py`; `docs/architecture/results-application.md` |
+| Recording | `scripts/record.py`, `src/laundrybench/data/recording.py`, `configs/recording.example.yaml` | `tests/test_recording.py`; physical workflow in `projects/laundrybench/docs/architecture/recording-workflow.md` |
+| ACT training | `scripts/train.py`, `src/laundrybench/training/act.py`, `configs/training.example.yaml` | `tests/test_training.py`; `projects/laundrybench/docs/architecture/training-workflow.md` |
+| ACT policy and rollout | `scripts/run_policy.py`, `src/laundrybench/policies/act.py`, `src/laundrybench/evaluation/physical.py`, `configs/rollout.example.yaml` | `tests/test_act_policy.py`, `tests/test_physical_rollout.py`; `projects/laundrybench/docs/architecture/act-rollout.md` |
+| Capture and evidence | `src/laundrybench/evaluation/capture.py`, `src/laundrybench/evaluation/media.py`, `scripts/import_media.py` | `tests/test_capture.py`, `tests/test_media.py`; `projects/laundrybench/docs/architecture/physical-evidence.md` |
+| Results UI and API | `frontend/src/` for browser behavior; `src/laundrybench/web/` for API/server; `scripts/serve.py` and `scripts/report.py` | `frontend/src/*.test.tsx` / `api.test.ts`; backend `tests/test_web*.py`, `tests/test_report.py`; `projects/laundrybench/docs/architecture/results-application.md` |
 
 Check the relevant existing test and architecture doc before changing a
 boundary. Keep the mock path runnable. Synthetic tests and fixtures do not
@@ -55,7 +55,7 @@ make lerobot-check PYTHON=.venv-lerobot/bin/python
 The second command reports JSON and exits nonzero for required environment
 failures, including broken ACT/video imports. It makes no device connections
 and does not establish calibration, camera timing, or arm readiness. Then
-follow the [home playbook](playbooks/so101-home-feedback-loop.md).
+follow the [home playbook](../projects/laundrybench/docs/playbooks/so101-home-feedback-loop.md).
 
 The optional actual LeRobot CPU integration smoke is separate from stock CI.
 Use a dedicated environment with LeRobot `0.6.1`, CPU PyTorch `2.7.1`,
@@ -117,7 +117,7 @@ The diff and regression tests make useful review examples:
   dataset identity. The wrapper requires the full commit SHA and validates
   lineage; the cloud submission/finalization coverage is in
   [`test_training.py`](../projects/laundrybench/tests/test_training.py), and
-  the contract is explained in [`training-workflow.md`](architecture/training-workflow.md).
+  the contract is explained in [`training-workflow.md`](../projects/laundrybench/docs/architecture/training-workflow.md).
 
 The [PR checks page](https://github.com/chungtseng96/embodied-ai-lab/pull/35/checks)
 and the repository's [CI workflow](../.github/workflows/ci.yml) are the
