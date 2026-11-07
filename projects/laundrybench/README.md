@@ -24,7 +24,8 @@ log success/failure
 ## V1 constraints
 
 - One SO-101 follower arm
-- One fixed external camera
+- One fixed external camera in the policy/dataset contract; an optional second
+  camera may provide operator-only third-person observability
 - Fixed table and basket locations
 - Lightweight clothing only
 - No overlapping garments initially
@@ -50,7 +51,7 @@ Observation
  Targeted demonstrations or config change
 ```
 
-The interfaces are intentionally model-agnostic; a supervised LeRobot 0.6.1 ACT path is now implemented through recording, contract-bound training, bounded rollout, and LaundryBench evidence review. Hardware acceptance remains pending.
+The interfaces are intentionally model-agnostic; a supervised LeRobot 0.6.1 ACT path is now implemented through recording, contract-bound training, bounded rollout, and LaundryBench evidence review. The calibrated two-arm/two-camera live observability path has passed a bounded smoke; task data, training, and policy acceptance remain pending.
 
 ## Project layout
 
@@ -87,6 +88,7 @@ The mock robot is only a development stand-in. Its success rate has no physical 
 The physical path is separate from mock-first `robot.yaml` / `camera.yaml`:
 
 - `configs/recording.example.yaml` + `scripts/record.py`: dry-run-first LeRobot dataset recording with separate calibrated follower/leader roles and a lifecycle manifest.
+- `configs/teleoperation.example.yaml` + `scripts/teleoperate.py`: bounded supervised two-camera Rerun teleoperation with per-camera software rotation; the third-person stream is operator-only.
 - `configs/training.example.yaml` + `scripts/train.py`: strict dataset/recording contract validation, local ACT training, checkpoint provenance, and explicit private Hugging Face Jobs mode.
 - `configs/rollout.example.yaml` + `scripts/run_policy.py`: checkpoint/processor contract validation, bounded supervised ACT execution, LaundryBench traces and camera evidence.
 - `scripts/serve.py` + `scripts/report.py`: human-review labels and reviewed-only metrics for the physical run directory.
@@ -94,16 +96,17 @@ The physical path is separate from mock-first `robot.yaml` / `camera.yaml`:
 Start with [the SO-101 home feedback loop guide](docs/playbooks/so101-home-feedback-loop.md), which explains exact setup, dry-run commands, expected artifacts, review, and troubleshooting. Inspect the safe CLI surfaces from this project directory:
 
 ```bash
+python scripts/teleoperate.py --help
 python scripts/record.py --help
 python scripts/train.py --help
 python scripts/run_policy.py --help
 ```
 
-Record and rollout require explicit `--execute --supervised`; recording also requires an interactive foreground terminal and both calibrated arm roles. Do not run the checked-in example configs against hardware without replacing their placeholders. No physical acceptance, real ACT training, or task success is implied by the software implementation or offline tests.
+Teleoperation, recording, and rollout require explicit `--execute --supervised`; hardware commands also require an interactive foreground terminal and both calibrated arm roles. Do not run the checked-in example configs against hardware without replacing their placeholders. The live smoke does not imply real ACT training or task success.
 
 ## Plan of record
 
-The [V1 implementation plan](docs/plans/2026-10-31-laundrybench-v1-implementation.md) and [V1 design review](docs/plans/2026-10-31-laundrybench-design-review.md) track broader project work. The next physical gate is operator-run acceptance on the calibrated device, including camera freshness/capture timing, checkpoint inference, stop/reconnect behavior, and manually reviewed task outcomes.
+The [V1 implementation plan](docs/plans/2026-10-31-laundrybench-v1-implementation.md) and [V1 design review](docs/plans/2026-10-31-laundrybench-design-review.md) track broader project work. The next physical gate is a neutral/direction/range and stop/reconnect check followed by operator-run demonstrations, camera freshness/capture timing, checkpoint inference, and manually reviewed task outcomes.
 
 ## System responsibilities
 

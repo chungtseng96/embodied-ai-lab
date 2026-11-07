@@ -8,6 +8,7 @@
 | Review design decisions | [Architecture decisions](architecture/decisions/) |
 | Configure development and training hosts | [Development environment](architecture/development-environment.md), [readiness plan](plans/so101-readiness.md) |
 | Record demonstrations | [Recording workflow](architecture/recording-workflow.md) |
+| Run supervised SO-101 teleoperation | [Operator playbook](playbooks/so101-home-feedback-loop.md), `scripts/teleoperate.py`, `configs/teleoperation.example.yaml` |
 | Train ACT and track checkpoint provenance | [Training workflow](architecture/training-workflow.md) |
 | Execute a bounded policy rollout | [ACT rollout](architecture/act-rollout.md), [SO-101 adapter](architecture/so101-adapter.md) |
 | Inspect camera evidence and outcome contracts | [Physical evidence](architecture/physical-evidence.md), [media](architecture/media-contract.md), [outcomes](architecture/outcome-contract.md) |

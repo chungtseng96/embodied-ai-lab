@@ -1,8 +1,8 @@
 # LaundryBench Development Environment
 
-**Status:** Proposed
+**Status:** Implemented hybrid profiles; physical acceptance pending
 
-**Date:** 2026-09-17
+**Date:** 2026-11-03
 
 ## Decision summary
 
@@ -10,6 +10,8 @@ LaundryBench will use a hybrid development environment:
 
 - the laptop is the development, testing, documentation, and orchestration
   host;
+- on Intel macOS, a pinned native edge profile performs serial, camera,
+  recording, and supervised rollout work beside the arm;
 - a local Linux-capable robot computer performs hardware bring-up, camera
   capture, teleoperation, and policy rollout beside the SO-101;
 - a cloud Linux NVIDIA GPU runs training and larger evaluations;
@@ -29,9 +31,10 @@ logs, and experiment records are all versioned or linked.
 ## Context
 
 The initial development host is an Intel Mac. Full LeRobot/PyTorch training
-requires a compatible runtime; a CLI installation alone does not establish
-training readiness. Docker and device compatibility must be checked on the
-selected host. Mock development must remain independent of physical hardware.
+requires a compatible Linux or Apple-Silicon runtime; a CLI installation alone
+does not establish training readiness. Docker and device compatibility must be
+checked on the selected host. Mock development must remain independent of
+physical hardware.
 
 The workflow must expose dependency management, interfaces, experiment control,
 and deployment boundaries through versioned commands and configuration.
@@ -88,11 +91,31 @@ The laptop must support:
   uploaded or downloaded.
 
 The laptop does not need to provide CUDA training. On Intel macOS, the POC
-gate may report missing optional video or ML dependencies without pretending
-that a partial `--no-deps` installation is a full runtime. LeLab is useful when
-its dependency set can be installed; on this Intel Mac its current pinned
-LeRobot/PyTorch range has no matching x86_64 macOS wheels, so the terminal
-workflow remains the reliable local path.
+gate uses the checked-in native edge profile instead of pretending that the
+Linux/Apple-Silicon TorchCodec stack is available. The profile pins Python
+packages in `requirements/edge-macos-x86_64.lock.txt`, installs LeRobot 0.6.1
+without its incompatible platform metadata, and verifies the supported PyAV
+video backend plus ACT imports. It is for hardware I/O and CPU-side data
+inspection; it is not the training image.
+
+Create or recreate the profile with:
+
+```bash
+python3 projects/laundrybench/scripts/bootstrap_edge_env.py \
+  --venv /absolute/path/to/laundrybench-lerobot-edge
+EDGE_PYTHON=/absolute/path/to/laundrybench-lerobot-edge/bin/python
+make host-check PYTHON="$EDGE_PYTHON"
+make lerobot-check PYTHON="$EDGE_PYTHON"
+```
+
+The bootstrap is idempotent for an existing virtual environment and does not
+touch calibration, datasets, checkpoints, or the host's system Python. The
+Intel profile cannot pass `uv pip check` against LeRobot's upstream Linux/
+Apple-Silicon dependency declarations; `check_lerobot.py` is the authoritative
+profile-aware readiness check. LeLab and Rerun are optional and are not part of
+the Intel edge contract. A standalone `ffmpeg` executable is also optional on
+Intel macOS because the edge profile uses PyAV; it remains required by the
+Linux/NVIDIA training profile.
 
 ### Robot edge host
 
@@ -101,6 +124,11 @@ LeRobot hardware extras. It stays physically close to the arm and camera. Its
 responsibilities are calibration, teleoperation, recording, replay, and
 rollout. It should use explicit robot and camera configuration and should not
 silently select a serial port.
+
+The native Intel profile is a laptop fallback for the same edge responsibilities
+when the physical devices are attached to macOS. For a long-lived home setup,
+prefer a Linux edge host so the hardware and the training/runtime dependency
+family can use the same supported platform.
 
 ### Cloud GPU
 
@@ -115,6 +143,21 @@ script with a checked-in experiment config. A successful run must produce:
 - random seed and device;
 - training logs and checkpoint identifier;
 - evaluation metrics and known limitations.
+
+Build the training image from the selected source revision on a Linux/NVIDIA
+host (Docker Desktop on Intel macOS is only a local build/smoke-test option):
+
+```bash
+docker build \
+  --file projects/laundrybench/Dockerfile.train \
+  --build-arg LAUNDRYBENCH_SOURCE_SHA="$(git rev-parse HEAD)" \
+  --tag laundrybench-train:$(git rev-parse --short HEAD) \
+  projects/laundrybench
+```
+
+The image owns exact ACT training dependencies; it must not be used as the
+USB/camera device owner. Keep the edge process native to the machine where the
+arm and cameras are connected.
 
 ## Agent-first repository contract
 
@@ -194,6 +237,21 @@ Robot control has different latency, device, and safety requirements from
 training. Keeping them separate makes failures easier to diagnose and avoids
 coupling a physical USB device to a remote GPU process.
 
+### Rebootable environment contract
+
+The edge and training environments are reproducible at different boundaries:
+
+| Boundary | Reproducibility artifact | Owns |
+| --- | --- | --- |
+| Intel macOS edge | `bootstrap_edge_env.py` plus the exact lock file | serial, cameras, native recording, CPU-side rollout checks |
+| Linux/NVIDIA training | `Dockerfile.train` plus source SHA and experiment config | ACT training and checkpoint production |
+
+Rebooting the laptop means rerunning the edge bootstrap and then the read-only
+host/LeRobot checks. Rebooting a training worker means rebuilding the image
+from the same source SHA. Calibration files, device paths, datasets, and model
+weights remain external state and must be identified in the experiment record;
+they are not baked into either artifact.
+
 ## Readiness gate for the arm
 
 The project is ready for delivery when the following are true:
@@ -202,6 +260,7 @@ The project is ready for delivery when the following are true:
   is present;
 - local tests and lint pass;
 - the host preflight reports the known laptop gaps explicitly;
+- the selected edge profile can be recreated from the checked-in lock file;
 - LeRobot installation and version are recorded;
 - a hardware setup checklist names the expected ports, IDs, and cameras;
 - a smoke-test dataset and experiment-note template exist;

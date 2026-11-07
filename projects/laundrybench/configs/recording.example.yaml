@@ -12,7 +12,9 @@ recording:
     index_or_path: 0
     width: 640
     height: 480
-    fps: 15
+    # The validated icSpring camera accepts 30 FPS acquisition; the dataset
+    # remains sampled at 15 FPS below.
+    fps: 30
   dataset:
     repo_id: local-user/laundrybench_sock_smoke
     fps: 15
