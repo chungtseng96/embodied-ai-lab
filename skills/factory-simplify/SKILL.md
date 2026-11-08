@@ -1,6 +1,6 @@
 ---
 name: factory-simplify
-description: Factory simplify, after implement or on any branch whose diff should shrink: a behavior-preserving pass against the repo profile's **Standards**.
+description: "Factory simplify, after implement or on any branch whose diff should shrink: a behavior-preserving pass against the repo profile's **Standards**."
 user-invocable: true
 ---
 

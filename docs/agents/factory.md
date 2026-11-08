@@ -133,8 +133,9 @@ released by a human once every parent is merged into `main`.
 The exchange-bidder factory is started by a Ranger automation that
 receives Linear's label webhook. This repository has no Ranger tenant, so
 the trigger is a **poll**: `scripts/factory_dispatch.py` lists the team's
-`factory:ready` tickets, oldest first, skips any whose branch is already on
-origin (a claim in flight), and starts one run. The run swaps the label to
+`factory:ready` tickets, oldest first, skips any whose state record still
+holds a live lease (a claim in flight), and starts one run; a `ready` ticket
+whose branch already exists is a paused or re-released run, and resumes. The run swaps the label to
 `working` as it claims, so the next poll does not start it twice; a lock
 file keeps two polls from starting two sessions. Three schedulers can run
 the poll; all read the Linear key from `~/.config/linear/embodied-ai-lab.key`

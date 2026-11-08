@@ -26,9 +26,9 @@
   <string>REPO_ROOT</string>
   <key>EnvironmentVariables</key>
   <dict>
-    <!-- claude and gh are not on launchd's default PATH. -->
+    <!-- claude (~/.local/bin; ~/.superset/bin only wraps it) and gh are not on launchd's default PATH. -->
     <key>PATH</key>
-    <string>/Users/jameswang/.superset/bin:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin</string>
+    <string>/Users/jameswang/.local/bin:/Users/jameswang/.superset/bin:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin</string>
   </dict>
   <key>StartInterval</key>
   <integer>900</integer>

@@ -336,7 +336,7 @@ def verdict(report: dict, status: int | None, watcher: str) -> tuple[str, str]:
     reason = report.get("reason", "")
     if re.search("head|base", reason) and re.search("changed|differs", reason):
         return "moved", reason
-    if report.get("ci", {}).get("state") == "success":
+    if report.get("ci", {}).get("state") == "success" and not reason:
         return "green", ""
     if "CI Gate concluded" in reason:
         return "failed", reason

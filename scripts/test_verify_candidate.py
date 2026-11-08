@@ -186,6 +186,17 @@ class CandidateTests(unittest.TestCase):
                 if expected != "green":
                     self.assertTrue(report["verdict_reason"])
 
+    def test_verdict_is_not_green_when_the_report_carries_an_observation_error(self):
+        sys.path.insert(0, str(Path(__file__).resolve().parent))
+        import verify_candidate
+
+        report = {"ci": {"state": "success"}, "reason": "reviews fetch failed"}
+        self.assertEqual(
+            verify_candidate.verdict(report, 0, ""), ("error", "reviews fetch failed")
+        )
+        clean = {"ci": {"state": "success"}}
+        self.assertEqual(verify_candidate.verdict(clean, 0, ""), ("green", ""))
+
     def test_verdict_moves_on_a_head_change_during_the_report(self):
         initial = self.responses[self.pr_endpoint]
         self.responses[self.pr_endpoint] = {

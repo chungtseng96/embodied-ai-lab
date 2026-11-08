@@ -1,6 +1,6 @@
 ---
 name: factory-implement
-description: Factory implement for a ticket with a state record: write the failing behavior test, then the smallest change inside the ticket's Files list.
+description: "Factory implement for a ticket with a state record: write the failing behavior test, then the smallest change inside the ticket's Files list."
 user-invocable: true
 ---
 

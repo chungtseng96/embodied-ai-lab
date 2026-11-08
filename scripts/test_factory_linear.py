@@ -43,13 +43,19 @@ class FakeLinear:
         self.issues = issues
         self.catalog = catalog
         self.writes = []
+        self.comment_pages = {}
 
     def __call__(self, payload):
         query, variables = payload["query"], payload["variables"]
         if "issueLabels(first" in query:
             return {"data": {"issueLabels": {"nodes": self.catalog}}}
+        if "$after: String!" in query:
+            page = self.comment_pages[variables["after"]]
+            return {"data": {"issue": {"comments": page}}}
         if query.lstrip().startswith("query($id: String!)"):
             found = self.issues.get(variables["id"])
+            if found and "pageInfo" not in found["comments"]:
+                found["comments"]["pageInfo"] = {"hasNextPage": False, "endCursor": None}
             return {"data": {"issue": found}}
         if (
             "issueUpdate" in query
@@ -159,6 +165,21 @@ class IssueTests(unittest.TestCase):
         self.assertEqual(found["factoryLabel"], "working")
         self.assertEqual(found["factoryState"]["id"], "c1")
 
+    def test_issue_follows_comment_pages_to_find_the_state_record(self):
+        first = make_issue("JWA-5")
+        first["comments"] = {
+            "nodes": [{"id": "c0", "body": "older chatter", "url": None}],
+            "pageInfo": {"hasNextPage": True, "endCursor": "cur-1"},
+        }
+        fake = FakeLinear({"JWA-5": first}, [])
+        fake.comment_pages["cur-1"] = {
+            "nodes": [STATE_COMMENT],
+            "pageInfo": {"hasNextPage": False, "endCursor": None},
+        }
+        found = factory_linear.issue("JWA-5", fake)
+        self.assertEqual([c["id"] for c in found["comments"]["nodes"]], ["c0", "c1"])
+        self.assertEqual(found["factoryState"]["id"], "c1")
+
     def test_missing_issue_is_an_error(self):
         fake = FakeLinear({}, [])
         with self.assertRaises(factory_linear.LinearError):
@@ -173,7 +194,19 @@ class LabelTests(unittest.TestCase):
         result = factory_linear.set_label("JWA-5", "working", fake)
         self.assertEqual(result, {"issue": "JWA-5", "before": "ready", "after": "working"})
         self.assertEqual(len(fake.writes), 1)
-        self.assertEqual(sorted(fake.writes[0]["variables"]["labelIds"]), ["l-working", "pa"])
+        self.assertEqual(
+            fake.writes[0]["variables"],
+            {"id": "id-JWA-5", "added": ["l-working"], "removed": ["l-ready"]},
+        )
+
+    def test_set_label_touches_only_factory_ids(self):
+        fake = FakeLinear(
+            {"JWA-5": make_issue("JWA-5", labels=[LABELS[1], PHASE_A])}, [GROUP, *LABELS, PHASE_A]
+        )
+        factory_linear.set_label("JWA-5", "working", fake)
+        self.assertEqual(fake.writes[0]["variables"]["added"], [])
+        self.assertEqual(fake.writes[0]["variables"]["removed"], [])
+        self.assertNotIn("labelIds", fake.writes[0]["variables"])
 
     def test_set_label_requires_the_label_to_exist(self):
         fake = FakeLinear({"JWA-5": make_issue("JWA-5")}, [GROUP])

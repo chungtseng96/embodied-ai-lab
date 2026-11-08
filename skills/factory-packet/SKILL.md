@@ -1,6 +1,6 @@
 ---
 name: factory-packet
-description: Factory packet for a PR at merge-ready, or any PR a human will review from evidence: the proof-of-done packet with linked evidence per criterion, impact, self-review and the agent's own weakest point.
+description: "Factory packet for a PR at merge-ready, or any PR a human will review from evidence: the proof-of-done packet with linked evidence per criterion, impact, self-review and the agent's own weakest point."
 user-invocable: true
 ---
 

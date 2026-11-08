@@ -1,6 +1,6 @@
 ---
 name: factory-pickup
-description: Factory pickup for one Linear ticket: start or resume a run, claim the ticket, resolve its stack base, write the Factory state comment; or a write-nothing readiness-only check of a ticket.
+description: "Factory pickup for one Linear ticket: start or resume a run, claim the ticket, resolve its stack base, write the Factory state comment; or a write-nothing readiness-only check of a ticket."
 user-invocable: true
 ---
 

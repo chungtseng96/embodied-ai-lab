@@ -1,6 +1,6 @@
 ---
 name: factory-verify
-description: Factory verify for a branch with commits to prove, or after any fix to one: the verification gate, the PR, one CI observation, the proof ledger.
+description: "Factory verify for a branch with commits to prove, or after any fix to one: the verification gate, the PR, one CI observation, the proof ledger."
 user-invocable: true
 ---
 

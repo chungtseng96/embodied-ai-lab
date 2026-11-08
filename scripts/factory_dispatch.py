@@ -12,8 +12,10 @@ Code session on it in a fresh worktree.
   factory_dispatch.py run --dry-run   print the command instead of running it
 
 The run itself swaps the label to `factory:working` as it claims, so the next
-poll does not pick the same ticket; a ticket whose claim is in flight is also
-skipped here when its branch is already on origin. One dispatcher runs at a
+poll does not pick the same ticket. A `ready` ticket whose state record still
+holds a live lease (a run between its claim and its label write) is skipped;
+one whose branch already exists is not, because a paused or re-released run
+resumes from that branch. One dispatcher runs at a
 time per repository (a lock file), so two polls never start two sessions.
 """
 
@@ -28,11 +30,13 @@ import shlex
 import subprocess
 import sys
 import tempfile
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 import factory_linear
 
 SLUG = re.compile(r"[^a-z0-9]+")
+LIVE_LEASE = timedelta(minutes=30)
 
 
 def repo_root() -> Path:
@@ -42,22 +46,30 @@ def repo_root() -> Path:
     return Path(out.stdout.strip())
 
 
-def branch_on_origin(branch: str, cwd: Path) -> bool:
-    result = subprocess.run(
-        ["git", "ls-remote", "--exit-code", "--heads", "origin", branch],
-        cwd=cwd,
-        capture_output=True,
-        text=True,
-        check=False,
-    )
-    return result.returncode == 0
+def heartbeat(record: str | None) -> datetime | None:
+    """The `run:` heartbeat of a Factory state comment, or None when it has none."""
+    match = factory_linear.HEARTBEAT.search(record or "")
+    if not match:
+        return None
+    raw = match.group("time").replace("Z", "+00:00")
+    try:
+        parsed = datetime.fromisoformat(raw)
+    except ValueError:
+        return None
+    return parsed if parsed.tzinfo else parsed.replace(tzinfo=UTC)
 
 
-def pick(team: str, cwd: Path, transport=None, remote=None) -> dict | None:
-    """The oldest `ready` ticket whose branch is not yet on origin."""
-    remote = remote or branch_on_origin
+def live_lease(found: dict, now: datetime) -> bool:
+    state = found.get("factoryState") or {}
+    beat = heartbeat(state.get("body"))
+    return beat is not None and now - beat < LIVE_LEASE
+
+
+def pick(team: str, transport=None, now: datetime | None = None) -> dict | None:
+    """The oldest `ready` ticket that no live run holds."""
+    now = now or datetime.now(UTC)
     for row in factory_linear.ready(team, transport):
-        if row.get("branchName") and remote(row["branchName"], cwd):
+        if live_lease(factory_linear.issue(row["identifier"], transport), now):
             continue
         return row
     return None
@@ -114,7 +126,7 @@ def main(argv: list[str] | None = None, transport=None) -> int:
             print("factory_dispatch: another dispatcher holds the lock", file=sys.stderr)
             return 2
         try:
-            chosen = pick(args.team, root, transport)
+            chosen = pick(args.team, transport)
         except factory_linear.LinearError as exc:
             print(f"factory_dispatch: {exc}", file=sys.stderr)
             return 1

@@ -1,6 +1,7 @@
 import json
 import sys
 import unittest
+from datetime import UTC, datetime
 from pathlib import Path
 from unittest import mock
 
@@ -8,48 +9,94 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 import factory_dispatch
 
+NOW = datetime(2026, 11, 8, 12, 0, tzinfo=UTC)
 
-def ready_transport(rows):
+
+def record(heartbeat):
+    body = "**Factory state**\n\nTicket: JWA-5\n"
+    if heartbeat:
+        body += f"run: abcd1234 · heartbeat {heartbeat}\n"
+    body += "\nphase: factory-implement · started · head 1a2b3c4 · t"
+    return {"id": "c1", "body": body, "url": None}
+
+
+def issue(identifier, state_comment=None):
+    return {
+        "id": f"id-{identifier}",
+        "identifier": identifier,
+        "title": f"title {identifier}",
+        "description": "",
+        "branchName": f"chungtseng96/{identifier.lower()}-slug",
+        "url": "",
+        "state": {"name": "Todo", "type": "unstarted"},
+        "project": None,
+        "labels": {
+            "nodes": [{"id": "l-ready", "name": "factory:ready", "parent": {"name": "Factory"}}]
+        },
+        "relations": {"nodes": []},
+        "inverseRelations": {"nodes": []},
+        "comments": {
+            "nodes": [state_comment] if state_comment else [],
+            "pageInfo": {"hasNextPage": False, "endCursor": None},
+        },
+    }
+
+
+def transport_for(issues):
+    """Answers the `ready` listing and per-issue reads from one dict of issues."""
+
     def transport(payload):
-        assert "orderBy: createdAt" in payload["query"]
-        return {"data": {"issues": {"nodes": rows}}}
+        query, variables = payload["query"], payload["variables"]
+        if "orderBy: createdAt" in query:
+            rows = [
+                {
+                    "identifier": i,
+                    "title": v["title"],
+                    "branchName": v["branchName"],
+                    "createdAt": i,
+                }
+                for i, v in issues.items()
+            ]
+            return {"data": {"issues": {"nodes": rows}}}
+        return {"data": {"issue": issues[variables["id"]]}}
 
     return transport
 
 
-ROWS = [
-    {
-        "identifier": "JWA-5",
-        "title": "first",
-        "branchName": "chungtseng96/jwa-5-first",
-        "createdAt": "2026-11-01",
-    },
-    {
-        "identifier": "JWA-6",
-        "title": "second",
-        "branchName": "chungtseng96/jwa-6-second",
-        "createdAt": "2026-11-02",
-    },
-]
-
-
 class PickTests(unittest.TestCase):
     def test_pick_takes_the_oldest_ready_ticket(self):
-        chosen = factory_dispatch.pick(
-            "JWA", Path("."), ready_transport(ROWS), remote=lambda b, c: False
-        )
-        self.assertEqual(chosen["identifier"], "JWA-5")
+        transport = transport_for({"JWA-5": issue("JWA-5"), "JWA-6": issue("JWA-6")})
+        self.assertEqual(factory_dispatch.pick("JWA", transport, NOW)["identifier"], "JWA-5")
 
-    def test_pick_skips_a_ticket_whose_claim_branch_already_exists(self):
-        chosen = factory_dispatch.pick(
-            "JWA", Path("."), ready_transport(ROWS), remote=lambda b, c: b.endswith("jwa-5-first")
+    def test_pick_skips_a_ticket_whose_run_holds_a_live_lease(self):
+        transport = transport_for(
+            {
+                "JWA-5": issue("JWA-5", record("2026-11-08T11:50:00Z")),
+                "JWA-6": issue("JWA-6"),
+            }
         )
-        self.assertEqual(chosen["identifier"], "JWA-6")
+        self.assertEqual(factory_dispatch.pick("JWA", transport, NOW)["identifier"], "JWA-6")
+
+    def test_pick_resumes_a_ticket_with_a_stale_lease_or_a_cleared_run_line(self):
+        stale = transport_for({"JWA-5": issue("JWA-5", record("2026-11-08T11:00:00Z"))})
+        self.assertEqual(factory_dispatch.pick("JWA", stale, NOW)["identifier"], "JWA-5")
+        paused = transport_for({"JWA-5": issue("JWA-5", record(None))})
+        self.assertEqual(factory_dispatch.pick("JWA", paused, NOW)["identifier"], "JWA-5")
 
     def test_pick_returns_none_when_nothing_is_ready(self):
-        self.assertIsNone(
-            factory_dispatch.pick("JWA", Path("."), ready_transport([]), remote=lambda b, c: False)
+        self.assertIsNone(factory_dispatch.pick("JWA", transport_for({}), NOW))
+
+    def test_heartbeat_accepts_short_and_full_iso_times(self):
+        self.assertEqual(
+            factory_dispatch.heartbeat("run: x · heartbeat 2026-11-08T10:00Z"),
+            datetime(2026, 11, 8, 10, 0, tzinfo=UTC),
         )
+        self.assertEqual(
+            factory_dispatch.heartbeat("run: x · heartbeat 2026-11-08T10:00:30+00:00"),
+            datetime(2026, 11, 8, 10, 0, 30, tzinfo=UTC),
+        )
+        self.assertIsNone(factory_dispatch.heartbeat("run: x · heartbeat garbage"))
+        self.assertIsNone(factory_dispatch.heartbeat(None))
 
 
 class CommandTests(unittest.TestCase):
@@ -62,13 +109,13 @@ class CommandTests(unittest.TestCase):
         self.assertIn("--permission-mode", command)
 
     def test_dry_run_prints_the_command_without_running(self):
+        transport = transport_for({"JWA-5": issue("JWA-5")})
         with (
             mock.patch.object(factory_dispatch, "repo_root", return_value=Path("/repo")),
-            mock.patch.object(factory_dispatch, "branch_on_origin", return_value=False),
             mock.patch.object(factory_dispatch.subprocess, "run") as run,
             mock.patch("sys.stdout") as out,
         ):
-            code = factory_dispatch.main(["run", "--dry-run"], ready_transport(ROWS))
+            code = factory_dispatch.main(["run", "--dry-run"], transport)
         self.assertEqual(code, 0)
         run.assert_not_called()
         printed = json.loads(out.write.call_args_list[0].args[0])
@@ -80,7 +127,7 @@ class CommandTests(unittest.TestCase):
             mock.patch.object(factory_dispatch, "repo_root", return_value=Path("/repo")),
             mock.patch("sys.stdout") as out,
         ):
-            code = factory_dispatch.main(["pick"], ready_transport([]))
+            code = factory_dispatch.main(["pick"], transport_for({}))
         self.assertEqual(code, 0)
         self.assertEqual(json.loads(out.write.call_args_list[0].args[0]), {"ticket": None})
 

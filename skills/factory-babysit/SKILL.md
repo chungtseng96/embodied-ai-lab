@@ -1,6 +1,6 @@
 ---
 name: factory-babysit
-description: Factory babysit for a factory PR to drive to merge-ready, or any stacked PR whose base or parent moved: conflicts, restack, reviewer findings with a fresh re-review each round, CI at the exact head, proof-of-done packet, `factory-ready`.
+description: "Factory babysit for a factory PR to drive to merge-ready, or any stacked PR whose base or parent moved: conflicts, restack, reviewer findings with a fresh re-review each round, CI at the exact head, proof-of-done packet, `factory-ready`."
 user-invocable: true
 ---
 

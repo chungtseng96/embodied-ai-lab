@@ -91,9 +91,23 @@ ISSUE_QUERY = f"""
 query($id: String!) {{
   issue(id: $id) {{
     {ISSUE_FIELDS}
-    comments(first: 100) {{ nodes {{ id body createdAt url user {{ name }} }} }}
+    comments(first: 100) {{
+      nodes {{ id body createdAt url user {{ name }} }}
+      pageInfo {{ hasNextPage endCursor }}
+    }}
   }}
 }}
+"""
+
+COMMENTS_PAGE_QUERY = """
+query($id: String!, $after: String!) {
+  issue(id: $id) {
+    comments(first: 100, after: $after) {
+      nodes { id body createdAt url user { name } }
+      pageInfo { hasNextPage endCursor }
+    }
+  }
+}
 """
 
 LABEL_CREATE = (
@@ -101,8 +115,9 @@ LABEL_CREATE = (
     "{ issueLabelCreate(input: $input) { issueLabel { id name } } }"
 )
 ISSUE_LABELS_UPDATE = (
-    "mutation($id: String!, $labelIds: [String!]!) "
-    "{ issueUpdate(id: $id, input: {labelIds: $labelIds}) { success } }"
+    "mutation($id: String!, $added: [String!]!, $removed: [String!]!) "
+    "{ issueUpdate(id: $id, input: {addedLabelIds: $added, removedLabelIds: $removed}) "
+    "{ success } }"
 )
 COMMENT_UPDATE = (
     "mutation($id: String!, $body: String!) "
@@ -119,6 +134,16 @@ def issue(identifier: str, transport=None) -> dict:
     found = data.get("issue")
     if not found:
         raise LinearError(f"issue {identifier} not found")
+    # A ticket with more than 100 comments would otherwise hide its state record
+    # on a later page, and upsert_comment would create a duplicate.
+    page = found["comments"].get("pageInfo") or {}
+    while page.get("hasNextPage"):
+        more = graphql(
+            COMMENTS_PAGE_QUERY, {"id": identifier, "after": page["endCursor"]}, transport
+        )
+        connection = more["issue"]["comments"]
+        found["comments"]["nodes"].extend(connection["nodes"])
+        page = connection.get("pageInfo") or {}
     found["blockedBy"] = sorted(
         r["issue"]["identifier"]
         for r in found["inverseRelations"]["nodes"]
@@ -227,11 +252,15 @@ def set_label(identifier: str, state: str, transport=None) -> dict:
     if wanted is None:
         raise LinearError(f"label {LABELS[state]} missing; run ensure-labels")
     group_ids = {l["id"] for l in catalog if (l.get("parent") or {}).get("name") == GROUP}
-    kept = [l["id"] for l in found["labels"]["nodes"] if l["id"] not in group_ids]
+    present = {l["id"] for l in found["labels"]["nodes"]}
+    # Add and remove only Factory ids, so a label someone else changes between
+    # the read and this write is left alone.
+    removed = sorted(present & group_ids - {wanted})
+    added = [] if wanted in present else [wanted]
     before = found["factoryLabel"]
     graphql(
         ISSUE_LABELS_UPDATE,
-        {"id": found["id"], "labelIds": kept + [wanted]},
+        {"id": found["id"], "added": added, "removed": removed},
         transport,
     )
     return {"issue": identifier, "before": before, "after": state}
