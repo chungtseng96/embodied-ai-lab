@@ -46,3 +46,6 @@ projects/laundrybench/.e2e-artifacts/
 
 # Local agent continuation scratch
 /LOOP-STATE.md
+
+# Agent worktrees
+.claude/worktrees/

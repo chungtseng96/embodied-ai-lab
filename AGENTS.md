@@ -22,6 +22,10 @@ reproduce it.
 - Execution detail for the current engineering push lives in
   `projects/laundrybench/docs/plans/2026-10-31-laundrybench-v1-implementation.md`; design findings
   and their status live in `projects/laundrybench/docs/plans/2026-10-31-laundrybench-design-review.md`.
+- A ticket labeled `factory:ready` is built by the factory: one ticket to a
+  merge-ready PR, no human in the loop, no hardware. `/factory JWA-<n>` runs
+  it by hand; `docs/agents/factory.md` is the operator guide and
+  `docs/agents/factory-repo.md` holds every repo-specific value.
 - GitHub remote is the personal account `chungtseng96`, not a work account.
   Git pushes use a repo-local credential helper for that account. The `gh`
   CLI's active login may be a different account, so run `gh` commands for
@@ -117,4 +121,5 @@ For a normal change:
 
 For hardware bring-up, use `skills/so101-bringup/SKILL.md`. For code,
 configuration, tests, or experiment artifacts, use
-`skills/laundrybench-engineering/SKILL.md`.
+`skills/laundrybench-engineering/SKILL.md`. For a Linear ticket that should
+become a PR without a human in the loop, use `skills/factory/SKILL.md`.
