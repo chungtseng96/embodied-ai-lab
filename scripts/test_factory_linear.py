@@ -46,10 +46,14 @@ class FakeLinear:
         self.writes = []
         self.pages = {}
         self.ready_pages = None
+        self.catalog_pages = None
+        self.working_pages = None
 
     def __call__(self, payload):
         query, variables = payload["query"], payload["variables"]
         if "issueLabels(first" in query:
+            if self.catalog_pages is not None:
+                return {"data": {"issueLabels": self.catalog_pages[variables.get("after")]}}
             return {"data": {"issueLabels": {"nodes": self.catalog}}}
         if "$after: String!" in query:
             field = query.split("issue(id: $id) { ")[1].split("(")[0]
@@ -86,6 +90,8 @@ class FakeLinear:
                 }
             return {"data": {"ok": {"success": True}}}
         if "labels: {name: {eq: $label}}" in query and "project" in query:
+            if self.working_pages is not None:
+                return {"data": {"issues": self.working_pages[variables.get("after")]}}
             return {"data": {"issues": {"nodes": self.project_rows()}}}
         if "orderBy: createdAt" in query:
             if self.ready_pages is not None:
@@ -107,7 +113,7 @@ class FakeLinear:
 
     def project_rows(self):
         return [
-            {"identifier": i, "comments": v["comments"]}
+            {"identifier": i}
             for i, v in self.issues.items()
             if any(l["name"] == "factory:working" for l in v["labels"]["nodes"])
         ]
@@ -282,6 +288,15 @@ class LabelTests(unittest.TestCase):
         self.assertEqual(result["created"][0], "Factory")
         self.assertEqual(fake.writes[0]["variables"]["input"]["teamId"], "t1")
 
+    def test_label_catalog_reads_every_page(self):
+        fake = FakeLinear({}, [])
+        fake.catalog_pages = {
+            None: {"nodes": [PHASE_A], "pageInfo": {"hasNextPage": True, "endCursor": "p2"}},
+            "p2": {"nodes": [GROUP, *LABELS], "pageInfo": {"hasNextPage": False}},
+        }
+        self.assertEqual(factory_linear.ensure_labels("JWA", fake)["created"], [])
+        self.assertEqual(fake.writes, [])
+
     def test_ensure_labels_is_idempotent(self):
         fake = FakeLinear({}, [GROUP, *LABELS])
         self.assertEqual(factory_linear.ensure_labels("JWA", fake)["created"], [])
@@ -331,6 +346,25 @@ class WatchdogAndCascadeTests(unittest.TestCase):
             },
         )
         self.assertEqual(rows[1]["run"], None)
+
+    def test_working_reads_every_ticket_page(self):
+        fake = FakeLinear(
+            {
+                "JWA-5": make_issue("JWA-5", labels=[LABELS[1]], comments=[STATE_COMMENT]),
+                "JWA-6": make_issue("JWA-6", labels=[LABELS[1]]),
+            },
+            [],
+        )
+        fake.working_pages = {
+            None: {
+                "nodes": [{"identifier": "JWA-5"}],
+                "pageInfo": {"hasNextPage": True, "endCursor": "w2"},
+            },
+            "w2": {"nodes": [{"identifier": "JWA-6"}], "pageInfo": {"hasNextPage": False}},
+        }
+        rows = factory_linear.working("JWA-5", fake)
+        self.assertEqual([r["identifier"] for r in rows], ["JWA-5", "JWA-6"])
+        self.assertEqual(rows[0]["run"], "abcd1234")
 
     def test_children_marks_single_parent_children(self):
         fake = FakeLinear(

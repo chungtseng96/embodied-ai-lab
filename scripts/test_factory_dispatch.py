@@ -100,6 +100,31 @@ class PickTests(unittest.TestCase):
         self.assertIsNone(factory_dispatch.heartbeat(None))
 
 
+class LockTests(unittest.TestCase):
+    def test_lock_refuses_a_planted_symlink_and_never_truncates(self):
+        import os
+        import tempfile
+
+        with tempfile.TemporaryDirectory() as tmp:
+            target = Path(tmp) / "victim"
+            target.write_text("keep me")
+            link = Path(tmp) / "lock"
+            os.symlink(target, link)
+            with self.assertRaises(OSError):
+                factory_dispatch.open_lock(link)
+            self.assertEqual(target.read_text(), "keep me")
+            real = Path(tmp) / "real.lock"
+            real.write_text("existing")
+            with factory_dispatch.open_lock(real):
+                pass
+            self.assertEqual(real.read_text(), "existing")
+
+    def test_lock_path_is_user_scoped(self):
+        import os
+
+        self.assertIn(f"-{os.getuid()}-", factory_dispatch.lock_path(Path("/repo")).name)
+
+
 class CommandTests(unittest.TestCase):
     def test_worktree_and_command_shape(self):
         root = Path("/repo")

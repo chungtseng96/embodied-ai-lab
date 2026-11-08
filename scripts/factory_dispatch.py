@@ -23,6 +23,7 @@ from __future__ import annotations
 
 import argparse
 import fcntl
+import hashlib
 import json
 import os
 import re
@@ -105,8 +106,14 @@ def ensure_worktree(worktree: Path, base: str, root: Path) -> None:
 
 
 def lock_path(root: Path) -> Path:
-    digest = re.sub(r"[^a-zA-Z0-9]", "_", str(root))
-    return Path(tempfile.gettempdir()) / f"factory-dispatch-{digest}.lock"
+    digest = hashlib.sha256(str(root).encode()).hexdigest()[:16]
+    return Path(tempfile.gettempdir()) / f"factory-dispatch-{os.getuid()}-{digest}.lock"
+
+
+def open_lock(path: Path):
+    """A lock file that is never truncated and never follows a planted symlink."""
+    descriptor = os.open(path, os.O_CREAT | os.O_RDWR | os.O_NOFOLLOW, 0o600)
+    return os.fdopen(descriptor, "a")
 
 
 def main(argv: list[str] | None = None, transport=None) -> int:
@@ -119,7 +126,7 @@ def main(argv: list[str] | None = None, transport=None) -> int:
     parser.add_argument("--dry-run", action="store_true")
     args = parser.parse_args(argv)
     root = repo_root()
-    with open(lock_path(root), "w") as lock:
+    with open_lock(lock_path(root)) as lock:
         try:
             fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
         except BlockingIOError:

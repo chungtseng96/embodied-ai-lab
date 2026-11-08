@@ -204,12 +204,25 @@ def factory_label(labels: list[dict]) -> str | None:
 
 
 LABELS_QUERY = """
-query { issueLabels(first: 250) { nodes { id name isGroup parent { id name } team { id key } } } }
+query($after: String) {
+  issueLabels(first: 250, after: $after) {
+    nodes { id name isGroup parent { id name } team { id key } }
+    pageInfo { hasNextPage endCursor }
+  }
+}
 """
 
 
 def label_catalog(transport=None) -> list[dict]:
-    return graphql(LABELS_QUERY, None, transport)["issueLabels"]["nodes"]
+    """Every label in the workspace; a Factory label on a later page must not read as missing."""
+    rows, after = [], None
+    while True:
+        page = graphql(LABELS_QUERY, {"after": after}, transport)["issueLabels"]
+        rows.extend(page["nodes"])
+        info = page.get("pageInfo") or {}
+        if not info.get("hasNextPage"):
+            return rows
+        after = info["endCursor"]
 
 
 def ensure_labels(team_key: str, transport=None) -> dict:
@@ -321,9 +334,11 @@ def upsert_comment(identifier: str, marker: str, body: str, transport=None) -> d
 
 
 PROJECT_WORKING_QUERY = """
-query($project: ID!, $label: String!) {
-  issues(first: 50, filter: {project: {id: {eq: $project}}, labels: {name: {eq: $label}}}) {
-    nodes { identifier comments(first: 50) { nodes { body } } }
+query($project: ID!, $label: String!, $after: String) {
+  issues(first: 50, after: $after,
+         filter: {project: {id: {eq: $project}}, labels: {name: {eq: $label}}}) {
+    nodes { identifier }
+    pageInfo { hasNextPage endCursor }
   }
 }
 """
@@ -337,21 +352,23 @@ def working(identifier: str, transport=None) -> list[dict]:
     found = issue(identifier, transport)
     if not found.get("project"):
         return []
-    rows = graphql(
-        PROJECT_WORKING_QUERY,
-        {"project": found["project"]["id"], "label": LABELS["working"]},
-        transport,
-    )["issues"]["nodes"]
+    rows, after = [], None
+    while True:
+        page = graphql(
+            PROJECT_WORKING_QUERY,
+            {"project": found["project"]["id"], "label": LABELS["working"], "after": after},
+            transport,
+        )["issues"]
+        rows.extend(page["nodes"])
+        info = page.get("pageInfo") or {}
+        if not info.get("hasNextPage"):
+            break
+        after = info["endCursor"]
     out = []
     for row in rows:
-        record = next(
-            (
-                c["body"]
-                for c in row["comments"]["nodes"]
-                if first_line(c["body"]) == "**Factory state**"
-            ),
-            "",
-        )
+        # issue() drains every comment page, so the state record is never missed.
+        state = issue(row["identifier"], transport)["factoryState"]
+        record = state["body"] if state else ""
         beat = HEARTBEAT.search(record)
         state = STATE_LINE.findall(record)
         out.append(
