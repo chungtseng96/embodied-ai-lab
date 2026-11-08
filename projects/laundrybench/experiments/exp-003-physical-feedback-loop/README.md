@@ -1,7 +1,7 @@
 # EXP-003 — Physical feedback-loop acceptance
 
 **Date:** 2026-11-02  
-**Status:** Two-camera live teleoperation and software-rotated verification completed; neutral/direction/range/stop/reconnect validation, demonstration dataset, training, and policy rollout pending
+**Status:** Two-camera live teleoperation, software-rotated verification, and bounded motion/reconnect smoke completed; dynamic demonstrations, training, and policy rollout pending
 **Hardware:** physical SO-101 follower/leader pair, mounted icSpring camera, and overhead HD Pro Webcam C920
 **Owner:** Chung-Tseng Wang
 
@@ -141,5 +141,26 @@ recording lasted `59.93` seconds.
 
 This closes the camera-orientation acceptance item. It does not claim task
 completion, dataset quality, ACT training, or policy rollout. The next hardware
-gate is a neutral-pose, direction, range, and stop/reconnect check before
-recording two dynamic front-camera demonstrations.
+gate was the neutral-pose, direction, range, and stop/reconnect check documented
+below, before recording two dynamic front-camera demonstrations.
+
+### 2026-11-07 — bounded motion and reconnect smoke
+
+After the camera-orientation check, an operator performed bounded leader-driven
+motions from neutral in a supervised 60-second session. The normalized joint
+table changed during the run while the teleoperation loop remained around
+`66.7 ms` (`15 Hz`); the session ended at its configured bound and disconnected
+the leader and both cameras without traceback, runtime error, or overload
+output.
+
+A fresh 30-second session then reconnected the calibrated leader, follower,
+front camera, and third-person C920. It reached the same `15 Hz` loop and ended
+at its configured bound. The following read-only follower probe again reached
+all six motors (model `777`), reported torque enable, load, current, and status
+`0`, temperatures `32`–`33` °C, and closed the port without torque writes.
+
+This closes the physical connectivity, camera, supervised teleoperation, and
+reconnect smoke gates. It is not a formal per-joint calibration or mechanical
+range certification, and it does not claim task completion or policy quality.
+The next artifact is two dynamic front-camera demonstrations; no compatible
+contract-bound ACT checkpoint is currently present locally for rollout.

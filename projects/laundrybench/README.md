@@ -51,7 +51,7 @@ Observation
  Targeted demonstrations or config change
 ```
 
-The interfaces are intentionally model-agnostic; a supervised LeRobot 0.6.1 ACT path is now implemented through recording, contract-bound training, bounded rollout, and LaundryBench evidence review. The calibrated two-arm/two-camera live observability path has passed a bounded smoke; task data, training, and policy acceptance remain pending.
+The interfaces are intentionally model-agnostic; a supervised LeRobot 0.6.1 ACT path is now implemented through recording, contract-bound training, bounded rollout, and LaundryBench evidence review. The calibrated two-arm/two-camera live observability and bounded motion/reconnect path has passed physical smoke checks; dynamic task data, training, and policy acceptance remain pending.
 
 ## Project layout
 
@@ -106,7 +106,7 @@ Teleoperation, recording, and rollout require explicit `--execute --supervised`;
 
 ## Plan of record
 
-The [V1 implementation plan](docs/plans/2026-10-31-laundrybench-v1-implementation.md) and [V1 design review](docs/plans/2026-10-31-laundrybench-design-review.md) track broader project work. The next physical gate is a neutral/direction/range and stop/reconnect check followed by operator-run demonstrations, camera freshness/capture timing, checkpoint inference, and manually reviewed task outcomes.
+The [V1 implementation plan](docs/plans/2026-10-31-laundrybench-v1-implementation.md) and [V1 design review](docs/plans/2026-10-31-laundrybench-design-review.md) track broader project work. The connectivity, camera, supervised teleoperation, and reconnect smoke gates are complete. The next physical gate is two operator-run dynamic demonstrations, followed by camera freshness/capture timing, a contract-compatible ACT checkpoint, supervised inference, and manually reviewed task outcomes.
 
 ## System responsibilities
 
