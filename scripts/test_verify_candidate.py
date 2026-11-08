@@ -202,8 +202,10 @@ class CandidateTests(unittest.TestCase):
         self.responses[self.pr_endpoint] = {
             "sequence": [initial, initial | {"head": {"sha": "d" * 40}}]
         }
-        report = json.loads(self.run_cli().stdout)
+        result = self.run_cli(["--exit-on-ci"])
+        report = json.loads(result.stdout)
         self.assertEqual(report["verdict"], "moved")
+        self.assertNotEqual(result.returncode, 0, "a moved candidate is not green")
         self.assertIn("head", report["verdict_reason"])
 
     def test_one_shot_current_ci_and_review_do_not_claim_deployment(self):

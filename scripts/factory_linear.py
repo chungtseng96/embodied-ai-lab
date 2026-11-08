@@ -78,37 +78,42 @@ def graphql(query: str, variables: dict | None = None, transport=None) -> dict:
     return body.get("data") or {}
 
 
-ISSUE_FIELDS = """
-  id identifier title description branchName url
-  state { name type }
-  project { id name }
-  labels { nodes { id name parent { name } } }
-  relations { nodes { type relatedIssue { identifier } } }
-  inverseRelations { nodes { type issue { identifier } } }
-"""
+PAGE_INFO = "pageInfo { hasNextPage endCursor }"
+# Every connection the factory reads to the end: Linear pages at 50 by default,
+# so a state comment, a parent or a child past the first page would be missed.
+PAGED = {
+    "comments": "id body createdAt url user { name }",
+    "relations": "type relatedIssue { identifier }",
+    "inverseRelations": "type issue { identifier }",
+}
+
+
+def connection(field: str, after: str | None = None) -> str:
+    cursor = ", after: $after" if after else ""
+    return f"{field}(first: 100{cursor}) {{ nodes {{ {PAGED[field]} }} {PAGE_INFO} }}"
+
 
 ISSUE_QUERY = f"""
 query($id: String!) {{
   issue(id: $id) {{
-    {ISSUE_FIELDS}
-    comments(first: 100) {{
-      nodes {{ id body createdAt url user {{ name }} }}
-      pageInfo {{ hasNextPage endCursor }}
-    }}
+    id identifier title description branchName url
+    state {{ name type }}
+    team {{ id key }}
+    project {{ id name }}
+    labels {{ nodes {{ id name parent {{ name }} }} }}
+    {connection("comments")}
+    {connection("relations")}
+    {connection("inverseRelations")}
   }}
 }}
 """
 
-COMMENTS_PAGE_QUERY = """
-query($id: String!, $after: String!) {
-  issue(id: $id) {
-    comments(first: 100, after: $after) {
-      nodes { id body createdAt url user { name } }
-      pageInfo { hasNextPage endCursor }
-    }
-  }
+PAGE_QUERIES = {
+    field: (
+        f"query($id: String!, $after: String!) {{ issue(id: $id) {{ {connection(field, 'x')} }} }}"
+    )
+    for field in PAGED
 }
-"""
 
 LABEL_CREATE = (
     "mutation($input: IssueLabelCreateInput!) "
@@ -134,16 +139,8 @@ def issue(identifier: str, transport=None) -> dict:
     found = data.get("issue")
     if not found:
         raise LinearError(f"issue {identifier} not found")
-    # A ticket with more than 100 comments would otherwise hide its state record
-    # on a later page, and upsert_comment would create a duplicate.
-    page = found["comments"].get("pageInfo") or {}
-    while page.get("hasNextPage"):
-        more = graphql(
-            COMMENTS_PAGE_QUERY, {"id": identifier, "after": page["endCursor"]}, transport
-        )
-        connection = more["issue"]["comments"]
-        found["comments"]["nodes"].extend(connection["nodes"])
-        page = connection.get("pageInfo") or {}
+    for field in PAGED:
+        drain(found, field, identifier, transport)
     found["blockedBy"] = sorted(
         r["issue"]["identifier"]
         for r in found["inverseRelations"]["nodes"]
@@ -160,6 +157,37 @@ def issue(identifier: str, transport=None) -> dict:
         None,
     )
     return found
+
+
+def drain(found: dict, field: str, identifier: str, transport=None) -> None:
+    """Follow `field`'s cursor until the connection is complete."""
+    page = found[field].get("pageInfo") or {}
+    while page.get("hasNextPage"):
+        more = graphql(
+            PAGE_QUERIES[field], {"id": identifier, "after": page["endCursor"]}, transport
+        )
+        found[field]["nodes"].extend(more["issue"][field]["nodes"])
+        page = more["issue"][field].get("pageInfo") or {}
+
+
+def team_group(catalog: list[dict], team_id: str) -> tuple[dict | None, dict[str, dict]]:
+    """The team's `Factory` group and its child labels by name.
+
+    Another team may own a group with the same names; only this team's ids
+    may ever be written onto this team's tickets.
+    """
+    group = next(
+        (
+            l
+            for l in catalog
+            if l["name"] == GROUP and l["isGroup"] and (l.get("team") or {}).get("id") == team_id
+        ),
+        None,
+    )
+    if group is None:
+        return None, {}
+    children = {l["name"]: l for l in catalog if (l.get("parent") or {}).get("id") == group["id"]}
+    return group, children
 
 
 def first_line(text: str) -> str:
@@ -200,7 +228,7 @@ def ensure_labels(team_key: str, transport=None) -> dict:
             {"key": team_key},
             transport,
         )["teams"]["nodes"][0]["id"]
-    group = next((l for l in catalog if l["name"] == GROUP and l["isGroup"]), None)
+    group, existing = team_group(catalog, team_id)
     created = []
     if group is None:
         group = graphql(
@@ -209,7 +237,6 @@ def ensure_labels(team_key: str, transport=None) -> dict:
             transport,
         )["issueLabelCreate"]["issueLabel"]
         created.append(GROUP)
-    existing = {l["name"] for l in catalog if (l.get("parent") or {}).get("name") == GROUP}
     colors = {
         "ready": "#26B5CE",
         "working": "#F2C94C",
@@ -240,18 +267,13 @@ def set_label(identifier: str, state: str, transport=None) -> dict:
     if state not in STATES:
         raise LinearError(f"state must be one of {', '.join(STATES)}")
     found = issue(identifier, transport)
-    catalog = label_catalog(transport)
-    wanted = next(
-        (
-            l["id"]
-            for l in catalog
-            if l["name"] == LABELS[state] and (l.get("parent") or {}).get("name") == GROUP
-        ),
-        None,
-    )
-    if wanted is None:
-        raise LinearError(f"label {LABELS[state]} missing; run ensure-labels")
-    group_ids = {l["id"] for l in catalog if (l.get("parent") or {}).get("name") == GROUP}
+    _, labels = team_group(label_catalog(transport), found["team"]["id"])
+    if LABELS[state] not in labels:
+        raise LinearError(
+            f"label {LABELS[state]} missing on team {found['team']['key']}; run ensure-labels"
+        )
+    wanted = labels[LABELS[state]]["id"]
+    group_ids = {l["id"] for l in labels.values()}
     present = {l["id"] for l in found["labels"]["nodes"]}
     # Add and remove only Factory ids, so a label someone else changes between
     # the read and this write is left alone.
@@ -362,20 +384,35 @@ def children(identifier: str, transport=None) -> list[dict]:
 
 
 READY_QUERY = """
-query($team: String!, $label: String!) {
-  issues(first: 50, orderBy: createdAt,
+query($team: String!, $label: String!, $after: String) {
+  issues(first: 50, after: $after, orderBy: createdAt,
          filter: {team: {key: {eq: $team}}, labels: {name: {eq: $label}},
                   state: {type: {nin: ["completed", "canceled"]}}}) {
     nodes { identifier title branchName createdAt }
+    pageInfo { hasNextPage endCursor }
   }
 }
 """
 
 
 def ready(team_key: str, transport=None) -> list[dict]:
-    return graphql(READY_QUERY, {"team": team_key, "label": LABELS["ready"]}, transport)["issues"][
-        "nodes"
-    ]
+    """Every `ready` ticket on the team, oldest first.
+
+    Linear returns `orderBy: createdAt` newest first and pages at 50, so the
+    queue is read to the end and sorted here; otherwise new tickets would
+    starve old ones.
+    """
+    rows, after = [], None
+    while True:
+        page = graphql(
+            READY_QUERY, {"team": team_key, "label": LABELS["ready"], "after": after}, transport
+        )["issues"]
+        rows.extend(page["nodes"])
+        info = page.get("pageInfo") or {}
+        if not info.get("hasNextPage"):
+            break
+        after = info["endCursor"]
+    return sorted(rows, key=lambda row: (row.get("createdAt") or "", row["identifier"]))
 
 
 def arguments(argv: list[str] | None = None) -> argparse.Namespace:

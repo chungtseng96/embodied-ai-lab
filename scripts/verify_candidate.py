@@ -383,7 +383,7 @@ def main(argv: list[str] | None = None) -> int:
             return status
     report, status = observe(args)
     print(json.dumps(with_verdict(report, None, watcher), indent=2))
-    if args.exit_on_ci and report.get("ci", {}).get("state") == "success":
+    if args.exit_on_ci and report.get("verdict") == "green":
         return 0
     return status
 

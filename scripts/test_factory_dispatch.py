@@ -29,12 +29,13 @@ def issue(identifier, state_comment=None):
         "branchName": f"chungtseng96/{identifier.lower()}-slug",
         "url": "",
         "state": {"name": "Todo", "type": "unstarted"},
+        "team": {"id": "t1", "key": "JWA"},
         "project": None,
         "labels": {
             "nodes": [{"id": "l-ready", "name": "factory:ready", "parent": {"name": "Factory"}}]
         },
-        "relations": {"nodes": []},
-        "inverseRelations": {"nodes": []},
+        "relations": {"nodes": [], "pageInfo": {"hasNextPage": False}},
+        "inverseRelations": {"nodes": [], "pageInfo": {"hasNextPage": False}},
         "comments": {
             "nodes": [state_comment] if state_comment else [],
             "pageInfo": {"hasNextPage": False, "endCursor": None},

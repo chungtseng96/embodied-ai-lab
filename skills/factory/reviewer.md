@@ -41,13 +41,17 @@ Skip style, naming taste, and anything Ruff already enforces.
 
 ## Verdict
 
-Post it as a PR review comment at the exact head, and report the same text
-back:
+Post it as a PR review pinned to the commit you inspected (not whatever the
+PR head is by the time you finish), check the API echoed that commit, and
+report the same text back:
 
 ```bash
 export GH_TOKEN="$(gh auth token --user chungtseng96)"
-gh pr review <N> --repo chungtseng96/embodied-ai-lab --comment --body-file <file>
+gh api repos/chungtseng96/embodied-ai-lab/pulls/<N>/reviews -f event=COMMENT -f commit_id=<full SHA> -F body=@<file> --jq '.commit_id'
 ```
+
+The printed `commit_id` must equal the SHA you reviewed; if it does not, say
+so in your report instead of claiming the review posted.
 
 ```text
 **Factory review** · head <full SHA> · verdict: approve | send back

@@ -242,8 +242,9 @@ general-purpose agent), which never sees the run's conversation.
   plus the ticket id, the verbatim acceptance criteria and Constraints from
   the state record, `BASE`, `SHA`, `N`, the worktree path, and the first
   line "no `git switch`, `checkout`, `worktree`, `commit` or `push`".
-- **Posts:** one PR review at `SHA`
-  (`gh pr review $N --repo $REPO --comment --body-file <file>`) whose first
+- **Posts:** one PR review pinned to `SHA` with `commit_id` (`gh api
+  repos/$REPO/pulls/$N/reviews -f event=COMMENT -f commit_id=$SHA -F body=@<file>`),
+  so a push during the review cannot re-attach it to a newer head, whose first
   line is the verdict marker
   `**Factory review** · head <full SHA> · verdict: <approve | send back>`,
   followed by findings as `- [blocking] <file>:<line> <claim>` or

@@ -5,6 +5,7 @@ import tempfile
 import unittest
 from contextlib import redirect_stdout
 from pathlib import Path
+from unittest import mock
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
@@ -43,19 +44,22 @@ class FakeLinear:
         self.issues = issues
         self.catalog = catalog
         self.writes = []
-        self.comment_pages = {}
+        self.pages = {}
+        self.ready_pages = None
 
     def __call__(self, payload):
         query, variables = payload["query"], payload["variables"]
         if "issueLabels(first" in query:
             return {"data": {"issueLabels": {"nodes": self.catalog}}}
         if "$after: String!" in query:
-            page = self.comment_pages[variables["after"]]
-            return {"data": {"issue": {"comments": page}}}
+            field = query.split("issue(id: $id) { ")[1].split("(")[0]
+            page = self.pages[(field, variables["after"])]
+            return {"data": {"issue": {field: page}}}
         if query.lstrip().startswith("query($id: String!)"):
             found = self.issues.get(variables["id"])
-            if found and "pageInfo" not in found["comments"]:
-                found["comments"]["pageInfo"] = {"hasNextPage": False, "endCursor": None}
+            if found:
+                for field in ("comments", "relations", "inverseRelations"):
+                    found[field].setdefault("pageInfo", {"hasNextPage": False, "endCursor": None})
             return {"data": {"issue": found}}
         if (
             "issueUpdate" in query
@@ -84,22 +88,19 @@ class FakeLinear:
         if "labels: {name: {eq: $label}}" in query and "project" in query:
             return {"data": {"issues": {"nodes": self.project_rows()}}}
         if "orderBy: createdAt" in query:
-            return {
-                "data": {
-                    "issues": {
-                        "nodes": [
-                            {
-                                "identifier": i,
-                                "title": v["title"],
-                                "branchName": v["branchName"],
-                                "createdAt": "2026-11-08",
-                            }
-                            for i, v in self.issues.items()
-                            if any(l["name"] == variables["label"] for l in v["labels"]["nodes"])
-                        ]
-                    }
+            if self.ready_pages is not None:
+                return {"data": {"issues": self.ready_pages[variables.get("after")]}}
+            rows = [
+                {
+                    "identifier": i,
+                    "title": v["title"],
+                    "branchName": v["branchName"],
+                    "createdAt": "x",
                 }
-            }
+                for i, v in self.issues.items()
+                if any(l["name"] == variables["label"] for l in v["labels"]["nodes"])
+            ]
+            return {"data": {"issues": {"nodes": rows, "pageInfo": {"hasNextPage": False}}}}
         if "teams(filter" in query:
             return {"data": {"teams": {"nodes": [{"id": "t1"}]}}}
         raise AssertionError(f"unexpected query: {query[:80]}")
@@ -121,6 +122,7 @@ def make_issue(identifier, labels=(), comments=(), blocked_by=(), blocks=(), pro
         "branchName": f"chungtseng96/{identifier.lower()}-slug",
         "url": f"https://linear.app/x/{identifier}",
         "state": {"name": "Todo", "type": "unstarted"},
+        "team": {"id": "t1", "key": "JWA"},
         "project": {"id": "p1", "name": "P"} if project else None,
         "labels": {"nodes": list(labels)},
         "relations": {
@@ -172,13 +174,30 @@ class IssueTests(unittest.TestCase):
             "pageInfo": {"hasNextPage": True, "endCursor": "cur-1"},
         }
         fake = FakeLinear({"JWA-5": first}, [])
-        fake.comment_pages["cur-1"] = {
+        fake.pages[("comments", "cur-1")] = {
             "nodes": [STATE_COMMENT],
             "pageInfo": {"hasNextPage": False, "endCursor": None},
         }
         found = factory_linear.issue("JWA-5", fake)
         self.assertEqual([c["id"] for c in found["comments"]["nodes"]], ["c0", "c1"])
         self.assertEqual(found["factoryState"]["id"], "c1")
+
+    def test_issue_follows_relation_pages_for_parents_and_children(self):
+        first = make_issue("JWA-5", blocks=["JWA-6"], blocked_by=["JWA-4"])
+        first["relations"]["pageInfo"] = {"hasNextPage": True, "endCursor": "r1"}
+        first["inverseRelations"]["pageInfo"] = {"hasNextPage": True, "endCursor": "i1"}
+        fake = FakeLinear({"JWA-5": first}, [])
+        fake.pages[("relations", "r1")] = {
+            "nodes": [{"type": "blocks", "relatedIssue": {"identifier": "JWA-7"}}],
+            "pageInfo": {"hasNextPage": False},
+        }
+        fake.pages[("inverseRelations", "i1")] = {
+            "nodes": [{"type": "blocks", "issue": {"identifier": "JWA-3"}}],
+            "pageInfo": {"hasNextPage": False},
+        }
+        found = factory_linear.issue("JWA-5", fake)
+        self.assertEqual(found["blocks"], ["JWA-6", "JWA-7"])
+        self.assertEqual(found["blockedBy"], ["JWA-3", "JWA-4"])
 
     def test_missing_issue_is_an_error(self):
         fake = FakeLinear({}, [])
@@ -208,21 +227,60 @@ class LabelTests(unittest.TestCase):
         self.assertEqual(fake.writes[0]["variables"]["removed"], [])
         self.assertNotIn("labelIds", fake.writes[0]["variables"])
 
+    def test_set_label_uses_only_the_tickets_team_labels(self):
+        other_group = {
+            "id": "g2",
+            "name": "Factory",
+            "isGroup": True,
+            "parent": None,
+            "team": {"id": "t2", "key": "ZZ"},
+        }
+        other = [
+            {
+                "id": f"z-{s}",
+                "name": f"factory:{s}",
+                "isGroup": False,
+                "parent": {"id": "g2", "name": "Factory"},
+                "team": {"id": "t2", "key": "ZZ"},
+            }
+            for s in factory_linear.STATES
+        ]
+        fake = FakeLinear(
+            {"JWA-5": make_issue("JWA-5", labels=[LABELS[0]])},
+            [other_group, *other, GROUP, *LABELS],
+        )
+        factory_linear.set_label("JWA-5", "working", fake)
+        self.assertEqual(
+            fake.writes[0]["variables"],
+            {"id": "id-JWA-5", "added": ["l-working"], "removed": ["l-ready"]},
+        )
+
     def test_set_label_requires_the_label_to_exist(self):
         fake = FakeLinear({"JWA-5": make_issue("JWA-5")}, [GROUP])
         with self.assertRaises(factory_linear.LinearError):
             factory_linear.set_label("JWA-5", "ready", fake)
 
     def test_ensure_labels_creates_group_then_missing_children_only(self):
-        fake = FakeLinear({}, [PHASE_A, LABELS[0]])
+        fake = FakeLinear({}, [PHASE_A, GROUP, LABELS[0]])
         result = factory_linear.ensure_labels("JWA", fake)
         self.assertEqual(
-            result["created"],
-            ["Factory", "factory:working", "factory:needs-human", "factory:human-ready"],
+            result["created"], ["factory:working", "factory:needs-human", "factory:human-ready"]
         )
         self.assertTrue(all("issueLabelCreate" in w["query"] for w in fake.writes))
-        self.assertTrue(fake.writes[0]["variables"]["input"]["isGroup"])
-        self.assertEqual(fake.writes[1]["variables"]["input"]["parentId"], "g-new")
+        self.assertEqual({w["variables"]["input"]["parentId"] for w in fake.writes}, {"g1"})
+
+    def test_ensure_labels_ignores_another_teams_group(self):
+        other_group = {
+            "id": "g2",
+            "name": "Factory",
+            "isGroup": True,
+            "parent": None,
+            "team": {"id": "t2", "key": "ZZ"},
+        }
+        fake = FakeLinear({}, [other_group, PHASE_A])
+        result = factory_linear.ensure_labels("JWA", fake)
+        self.assertEqual(result["created"][0], "Factory")
+        self.assertEqual(fake.writes[0]["variables"]["input"]["teamId"], "t1")
 
     def test_ensure_labels_is_idempotent(self):
         fake = FakeLinear({}, [GROUP, *LABELS])
@@ -292,6 +350,43 @@ class WatchdogAndCascadeTests(unittest.TestCase):
         self.assertEqual(rows[1]["factoryLabel"], "needs-human")
 
 
+class ReadyQueueTests(unittest.TestCase):
+    def test_ready_reads_every_page_and_returns_oldest_first(self):
+        fake = FakeLinear({}, [])
+        fake.ready_pages = {
+            None: {
+                "nodes": [
+                    {
+                        "identifier": "JWA-9",
+                        "title": "",
+                        "branchName": "",
+                        "createdAt": "2026-11-09",
+                    },
+                    {
+                        "identifier": "JWA-8",
+                        "title": "",
+                        "branchName": "",
+                        "createdAt": "2026-11-08",
+                    },
+                ],
+                "pageInfo": {"hasNextPage": True, "endCursor": "c1"},
+            },
+            "c1": {
+                "nodes": [
+                    {
+                        "identifier": "JWA-2",
+                        "title": "",
+                        "branchName": "",
+                        "createdAt": "2026-11-02",
+                    }
+                ],
+                "pageInfo": {"hasNextPage": False},
+            },
+        }
+        rows = factory_linear.ready("JWA", fake)
+        self.assertEqual([r["identifier"] for r in rows], ["JWA-2", "JWA-8", "JWA-9"])
+
+
 class CliTests(unittest.TestCase):
     def test_cli_prints_json_and_reads_body_file(self):
         fake = FakeLinear({"JWA-5": make_issue("JWA-5")}, [])
@@ -316,7 +411,7 @@ class CliTests(unittest.TestCase):
     def test_cli_reports_errors_on_stderr_with_exit_1(self):
         fake = FakeLinear({}, [])
         err = io.StringIO()
-        with redirect_stdout(io.StringIO()), unittest.mock.patch("sys.stderr", err):
+        with redirect_stdout(io.StringIO()), mock.patch("sys.stderr", err):
             code = factory_linear.main(["issue", "JWA-404"], fake)
         self.assertEqual(code, 1)
         self.assertIn("not found", err.getvalue())
