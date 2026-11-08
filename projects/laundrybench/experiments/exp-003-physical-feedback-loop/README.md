@@ -1,7 +1,7 @@
 # EXP-003 — Physical feedback-loop acceptance
 
 **Date:** 2026-11-02  
-**Status:** Two-camera live teleoperation smoke completed; software-rotated rerun ready; demonstration dataset, training, and policy rollout pending
+**Status:** Two-camera live teleoperation and software-rotated verification completed; neutral/direction/range/stop/reconnect validation, demonstration dataset, training, and policy rollout pending
 **Hardware:** physical SO-101 follower/leader pair, mounted icSpring camera, and overhead HD Pro Webcam C920
 **Owner:** Chung-Tseng Wang
 
@@ -106,8 +106,8 @@ the leader, cameras, and follower cleanly with no recorded runtime error.
 - `front`: mounted `icSpring` camera, OpenCV index `1`, `640x480 @ 30 FPS`
 - `third_person`: overhead `HD Pro Webcam C920`, OpenCV index `0`,
   `640x480 @ 30 FPS`; the captured pre-rotation view was inverted, and the
-  versioned teleoperation config now pins software rotation `180` for the next
-  upright Rerun run
+  versioned teleoperation config pins software rotation `180` for the follow-up
+  upright Rerun run documented below
 - display: Rerun, `observation.front` plus `observation.third_person`, with
   observation/action plots visible
 - excluded devices: built-in FaceTime camera and iPhone camera
@@ -119,6 +119,27 @@ does not claim task completion, dataset capture, ACT training, or policy
 rollout. The third-person stream is operator-only and is not added to the
 current one-camera dataset contract. Existing follower/leader calibration files
 were reused; camera mounting and software image rotation are not, by
-themselves, reasons to recalibrate. The next hardware gate is a neutral-pose,
-direction, range, and stop/reconnect check before recording dynamic
-demonstrations.
+themselves, reasons to recalibrate.
+
+### 2026-11-07 — software-rotated two-camera verification
+
+A follow-up bounded 60-second supervised LeRobot teleoperation session used
+the versioned software rotation with the same calibrated SO-101 pair and both
+USB cameras. The iPhone and built-in FaceTime camera were not used. The Rerun
+recording lasted `59.93` seconds.
+
+- `observation.front` showed the live arm-mounted view.
+- `observation.third_person` showed the overhead C920 with rotation `180`;
+  the table text was upright/readable and the arm and leader were visible.
+- Observation and action traces changed during the session.
+- The leader and camera streams disconnected at the bounded-session end with
+  no traceback, runtime error, or overload output; a subsequent read-only
+  follower probe reached all six motors and closed the port without torque
+  writes.
+- The follower probe reported model `777` for all six motors, torque enable,
+  load, current, and status `0`, and temperatures from `32` to `33` °C.
+
+This closes the camera-orientation acceptance item. It does not claim task
+completion, dataset quality, ACT training, or policy rollout. The next hardware
+gate is a neutral-pose, direction, range, and stop/reconnect check before
+recording two dynamic front-camera demonstrations.
