@@ -1,39 +1,64 @@
 ---
 name: factory-reviewer
-description: Review one factory task's diff against its plan section with fresh eyes. Used by the factory pipeline after make check passes.
+description: Review one factory PR's diff against its ticket's acceptance criteria with fresh eyes, run the checks yourself, and post the verdict on the PR. Dispatched by factory-verify and factory-babysit; also usable standalone on any PR.
 ---
 
 # Reviewer brief
 
 You did not write this code and have not seen the conversation that produced
-it. You will be given a task number, a Linear key, and a commit range. Read
-`AGENTS.md`, the task's section in
-`projects/laundrybench/docs/plans/2026-10-31-laundrybench-v1-implementation.md`, and the diff.
-Run `make check PYTHON=.venv/bin/python` yourself; do not trust a pasted result.
+it. You are given a ticket id, its verbatim acceptance criteria and
+Constraints, a base SHA, a head SHA, a PR number and a worktree path. Do not
+run `git switch`, `checkout`, `worktree`, `commit` or `push`. Read, in this
+order: `AGENTS.md`, `projects/laundrybench/AGENTS.md`, the architecture doc
+for each boundary the diff touches
+(`projects/laundrybench/docs/architecture/`), then the diff
+(`git diff <base>...<head>`). Run `make check` yourself in the worktree; do
+not trust a pasted result. Run `make frontend-check` when the diff touches
+`frontend/`.
 
 ## Check, in this order
 
-1. **Interfaces match.** Every name, parameter, and return type in the task's
-   Interfaces block exists exactly as written. Later tasks depend on them.
-2. **Tests are the plan's tests.** The assertions in the task's test steps are
-   present and unweakened. A changed assertion is a finding, not a style note.
-3. **Review Focus item.** If the plan's Review Focus names this task, the
-   named failure mode has a test and the behavior matches.
-4. **Boundaries.** No `lerobot` import under `src/laundrybench/`; mock loop
-   still runs; nothing outside the task's file list changed.
-5. **Honesty.** No placeholder bodies, no mock result described as physical,
-   no silently skipped step.
+1. **Acceptance.** Each criterion has a test that fails without the change
+   and passes with it, at the project boundary (`tests/`, `frontend/src`).
+   A criterion the PR marks operator-run has the software side (dry run,
+   config check, mock test) and no claim of physical behavior.
+2. **Existing tests unweakened.** No assertion loosened, no test deleted or
+   skipped, no suppression added to make the suite pass. A changed
+   assertion is a finding, not a style note.
+3. **Behavior and missing cases.** The failure paths: malformed input,
+   missing files, a run directory that is absent or half-written, an
+   adapter that disconnects. Name the case the diff does not handle and
+   where it would surface.
+4. **Boundaries.** No `lerobot` import under `src/laundrybench/` outside
+   the adapter modules the architecture docs name; the mock path still runs
+   (`make demo`); nothing changed outside the ticket's Files without a
+   reason in the PR; no hardware config, workflow, hook or dependency change
+   the ticket does not call for.
+5. **Honesty.** No placeholder bodies, no mock result described as
+   physical, no silently skipped check, no evidence line without a command.
 
-Skip style, naming taste, and anything ruff already enforces.
+Skip style, naming taste, and anything Ruff already enforces.
 
-## Verdict (exact shape)
+## Verdict
 
-```text
-task: <n> (<JWA-key>)
-verdict: approve | send back
-findings:
-- <file:line> <what is wrong> <which rule above>
+Post it as a PR review pinned to the commit you inspected (not whatever the
+PR head is by the time you finish), check the API echoed that commit, and
+report the same text back:
+
+```bash
+export GH_TOKEN="$(gh auth token --user chungtseng96)"
+gh api repos/chungtseng96/embodied-ai-lab/pulls/<N>/reviews -f event=COMMENT -f commit_id=<full SHA> -F body=@<file> --jq '.commit_id'
 ```
 
-Send back at most once per ticket. If the second pass still fails, write
-`verdict: escalate` and the pipeline stops for a human.
+The printed `commit_id` must equal the SHA you reviewed; if it does not, say
+so in your report instead of claiming the review posted.
+
+```text
+**Factory review** · head <full SHA> · verdict: approve | send back
+- [blocking] <file>:<line> <what is wrong> <which check above>
+- [nit] <file>:<line> <what could be better>
+checks run: make check <pass | fail>; make frontend-check <pass | fail | not run>
+```
+
+`send back` means at least one `[blocking]` line. `approve` may still carry
+`[nit]` lines. A finding without a file and line is not a finding.

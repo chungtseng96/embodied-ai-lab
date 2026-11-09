@@ -1,39 +1,40 @@
 # Factory: how one ticket becomes one PR
 
-The factory is a fixed pipeline, not a conversation. A script decides the
-order; agents are nodes it calls; `make check` is the judge it trusts; a
-human merges. Background and sources:
-[`docs/plans/2026-10-31-software-factory-research.md`](../../docs/plans/2026-10-31-software-factory-research.md).
+The factory takes one Linear ticket to a merge-ready, evidence-backed PR
+without a human in the loop, and stops there: a human runs hardware and
+merges. It is the exchange-bidder factory's process, ported; what differs
+for this repository is in one file, the repo profile.
+
+- Operator guide (run, resume, labels, dispatch, the Monday review):
+  [`docs/agents/factory.md`](../../docs/agents/factory.md)
+- Repo profile (every repo-specific value the skills cite):
+  [`docs/agents/factory-repo.md`](../../docs/agents/factory-repo.md)
+- Router and shared rules: [`SKILL.md`](SKILL.md) (`/factory JWA-<n>`)
+- Step skills: [pickup](../factory-pickup/SKILL.md),
+  [implement](../factory-implement/SKILL.md),
+  [simplify](../factory-simplify/SKILL.md),
+  [verify](../factory-verify/SKILL.md),
+  [babysit](../factory-babysit/SKILL.md),
+  [packet](../factory-packet/SKILL.md)
+- Reviewer brief for the fresh-context subagent: [`reviewer.md`](reviewer.md)
+- Bounce log: [`docs/agents/factory-bounces.md`](../../docs/agents/factory-bounces.md)
+- Scripts: `scripts/factory_linear.py` (Linear), `scripts/factory_dispatch.py`
+  (the poll that starts runs), `scripts/factory_base.py` (stacked PRs),
+  `scripts/verify_candidate.py` and `scripts/watch_pr_checks.py` (CI wait).
 
 ```text
-Linear ticket (Todo, unblocked)
-  -> worktree for the ticket
-  -> implementer   (brief: implementer.md)   one task, TDD, commits
-  -> make check    (Stop hook enforces it; CI repeats it)
-  -> reviewer      (brief: reviewer.md)      fresh context, diff vs task spec
-  -> implementer again, once, if the reviewer sends it back
-  -> PR titled "JWA-<n> <task title>", ticket -> In Review with evidence
-  -> human merges  (the only approval inside the loop)
+Linear ticket labeled factory:ready
+  -> dispatcher poll (launchd; Superset automation on a Pro plan) or a human: /factory JWA-<n>
+  -> pickup     claim commit, base, Factory state comment, label factory:working
+  -> implement  failing test first, smallest change inside Files
+  -> simplify   behavior-preserving pass against AGENTS.md and the architecture docs
+  -> verify     make check, PR from the template, one CI wait, proof ledger
+  -> babysit    fresh-context reviewer (up to 3 rounds), CI green at the exact head
+  -> packet     Proof of done comment; PR label factory-ready; ticket factory:human-ready
+  -> human      reads the packet, runs any operator-run criteria, merges
 ```
 
-## Rules
-
-1. One ticket per pipeline run. The ticket's plan section is the spec; no
-   other prompt is written per ticket.
-2. Implementer and reviewer never share a context. The reviewer sees the
-   diff, the task section, and `AGENTS.md`, not the implementer's reasoning.
-3. Evidence before status. A ticket moves to In Review only with the
-   `make check` output and the commit SHA in a comment.
-4. Hooks only for zero-exception rules. Today: `make check` on stop when
-   Python changed; no edits under `outputs/`, venvs, calibration,
-   checkpoints, media, or the hooks themselves (`.claude/settings.json`).
-5. At most three tickets per run, then a human reads the PRs. Parallel lanes
-   only while review keeps up.
-6. A reviewer finding that recurs twice becomes an `AGENTS.md` gotcha, a
-   test, or a hook. Nothing else is added to the factory until something
-   recurs.
-
-## Rework tally
-
-Keep in the Linear ticket, one line: `send-backs: n | CI after push: pass|fail | human comments: n`.
-Structure is added only where this number is highest across tickets.
+Background and sources for the shape:
+[`docs/plans/2026-10-31-software-factory-research.md`](../../docs/plans/2026-10-31-software-factory-research.md);
+the port's design and decisions:
+[`docs/plans/2026-11-08-factory-port-design.md`](../../docs/plans/2026-11-08-factory-port-design.md).

@@ -7,7 +7,7 @@ Start with the root [`AGENTS.md`](../AGENTS.md), then
 [`projects/laundrybench/AGENTS.md`](../projects/laundrybench/AGENTS.md) for
 project changes. For implementation work, read
 [`skills/laundrybench-engineering/SKILL.md`](../skills/laundrybench-engineering/SKILL.md).
-For the established ticket workflow and reviewer brief, see
+For the ticket-to-PR factory and its reviewer brief, see
 [`skills/factory/README.md`](../skills/factory/README.md). Hardware work must
 also follow [`skills/so101-bringup/SKILL.md`](../skills/so101-bringup/SKILL.md)
 and the physical safety guidance. These files are the rules; this page is a
