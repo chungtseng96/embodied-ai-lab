@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+  The factory dispatcher as a launchd user agent: every 15 minutes, start one
+  run on the oldest factory:ready ticket (docs/agents/factory.md, Dispatch).
+
+  Install (replace REPO_ROOT with the absolute path of the shared checkout):
+    sed "s#REPO_ROOT#$PWD#g" scripts/com.embodied-ai-lab.factory-dispatch.plist \
+      > ~/Library/LaunchAgents/com.embodied-ai-lab.factory-dispatch.plist
+    launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/com.embodied-ai-lab.factory-dispatch.plist
+  Remove:
+    launchctl bootout gui/$(id -u)/com.embodied-ai-lab.factory-dispatch
+  Logs: REPO_ROOT/.claude/worktrees/factory-dispatch.log
+-->
+<plist version="1.0">
+<dict>
+  <key>Label</key>
+  <string>com.embodied-ai-lab.factory-dispatch</string>
+  <key>ProgramArguments</key>
+  <array>
+    <string>REPO_ROOT/.venv/bin/python</string>
+    <string>REPO_ROOT/scripts/factory_dispatch.py</string>
+    <string>run</string>
+  </array>
+  <key>WorkingDirectory</key>
+  <string>REPO_ROOT</string>
+  <key>EnvironmentVariables</key>
+  <dict>
+    <!-- claude (~/.local/bin; ~/.superset/bin only wraps it) and gh are not on launchd's default PATH. -->
+    <key>PATH</key>
+    <string>/Users/jameswang/.local/bin:/Users/jameswang/.superset/bin:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin</string>
+  </dict>
+  <key>StartInterval</key>
+  <integer>900</integer>
+  <key>RunAtLoad</key>
+  <false/>
+  <key>StandardOutPath</key>
+  <string>REPO_ROOT/.claude/worktrees/factory-dispatch.log</string>
+  <key>StandardErrorPath</key>
+  <string>REPO_ROOT/.claude/worktrees/factory-dispatch.log</string>
+</dict>
+</plist>

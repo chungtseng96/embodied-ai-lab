@@ -3,7 +3,7 @@ PYTHON_CMD := $(if $(findstring /,$(PYTHON)),$(abspath $(PYTHON)),$(PYTHON))
 PROJECT := projects/laundrybench
 EDGE_VENV ?= .venv-lerobot-edge
 
-.PHONY: install test demo lint check smoke lerobot-check host-check edge-env frontend-install frontend-check web-demo web
+.PHONY: install test demo lint check smoke factory-test factory-dispatch lerobot-check host-check edge-env frontend-install frontend-check web-demo web
 
 install:
 	cd $(PROJECT) && $(PYTHON_CMD) -m pip install -e ".[dev]"
@@ -22,6 +22,15 @@ check: test lint smoke
 smoke:
 	$(PYTHON_CMD) -m compileall -q $(PROJECT)/scripts
 	$(PYTHON_CMD) $(PROJECT)/scripts/check_host_setup.py
+
+# Factory scripts at the repository root: lint with the project's Ruff config, then their tests.
+factory-test:
+	$(PYTHON_CMD) -m ruff check --config $(PROJECT)/pyproject.toml scripts
+	$(PYTHON_CMD) -m pytest -q scripts
+
+# Start one factory run on the oldest factory:ready ticket (see docs/agents/factory.md).
+factory-dispatch:
+	$(PYTHON_CMD) scripts/factory_dispatch.py run
 
 lerobot-check:
 	cd $(PROJECT) && $(PYTHON_CMD) scripts/check_lerobot.py

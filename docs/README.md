@@ -7,7 +7,8 @@ Project design, hardware procedures, and experiment plans live with the project.
 | --- | --- |
 | [Contributor instructions](../AGENTS.md) | Repository boundaries and required checks |
 | [Agent guide](agent-guide.md) | Task routing, validation, and handoff evidence |
-| [Engineering workflow](../skills/factory/README.md) | Implementation and review process |
+| [Factory](../skills/factory/README.md) | Ticket-to-PR pipeline: operator guide, repo profile, reviewer brief |
+| [Factory operator guide](agents/factory.md) | Run, resume, dispatch and review factory output |
 | [Plans](plans/) | Shared engineering process proposals |
 | [Templates](templates/) | Experiment, architecture decision, plan, and handoff formats |
 | [LaundryBench documentation](../projects/laundrybench/docs/README.md) | Architecture, operator playbooks, and project plans |
