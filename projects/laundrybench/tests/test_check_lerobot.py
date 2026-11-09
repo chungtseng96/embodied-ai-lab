@@ -154,6 +154,8 @@ def test_required_runtime_failures_control_overall_status(
 
 
 def test_intel_macos_uses_pyav_edge_runtime(monkeypatch: pytest.MonkeyPatch) -> None:
+    # CI runs stock Python 3.11; the python check must not decide this test.
+    monkeypatch.setattr(check_lerobot.sys, "version_info", (3, 12, 0))
     monkeypatch.setattr(check_lerobot.sys, "platform", "darwin")
     monkeypatch.setattr(check_lerobot.platform, "machine", lambda: "x86_64")
     monkeypatch.setattr(check_lerobot.metadata, "version", lambda _: "0.6.1")
