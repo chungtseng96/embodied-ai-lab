@@ -2,7 +2,7 @@
 
 **Purpose:** bring your already-calibrated SO-101 and installed LeRobot environment through a safe first home session, then run repeatable demonstrations, ACT training, rollout, evidence review, and targeted iteration without confusing native LeRobot artifacts with LaundryBench runs.
 
-**Current capability in one sentence:** LaundryBench now has a dry-run-first LeRobot recorder, strict ACT training/provenance wrapper, supervised ACT policy adapter, bounded SO-101 rollout, camera evidence capture, and UI review/metrics path; software integration is implemented, while calibrated-device compatibility, actual demonstrations/training, camera timing, and task success still require operator-run physical acceptance.
+**Current capability in one sentence:** LaundryBench now has a dry-run-first LeRobot recorder and teleoperation wrapper, strict ACT training/provenance wrapper, supervised ACT policy adapter, bounded SO-101 rollout, camera evidence capture, and UI review/metrics path; the two-camera live observability loop is physically smoke-tested, while calibrated-device compatibility, actual demonstrations/training, camera timing, and task success still require the remaining operator-run gates.
 
 ## Read this before the commands
 
@@ -11,9 +11,9 @@ There are two usable workflows, and a software-wired physical feedback loop whos
 | Workflow | Works now | Does not mean |
 |---|---|---|
 | LaundryBench mock loop | `make web-demo`, UI labels, CLI/HTML summary, synthetic comparisons | Physical behavior, training data, or robot performance |
-| Joined physical pipeline | `record.py` creates a supervised native dataset plus recording manifest; `train.py` validates/provenances ACT; `run_policy.py` creates a bounded physical LaundryBench run with capture artifacts and pending labels | A successful physical task or validated operation on your particular arms/camera/checkpoint; no robot or task run has been done as part of this guide |
+| Joined physical pipeline | `teleoperate.py` runs a bounded two-camera Rerun check; `record.py` creates a supervised native dataset plus recording manifest; `train.py` validates/provenances ACT; `run_policy.py` creates a bounded physical LaundryBench run with capture artifacts and pending labels | A successful physical task, trained policy, or validated operation on your particular arms/camera/checkpoint |
 
-The mock-first `evaluation.yaml`, `robot.yaml`, and `camera.yaml` remain mock configs; `scripts/evaluate.py` is still the synthetic evaluation path. The explicit physical configs live separately in `recording.example.yaml`, `training.example.yaml`, and `rollout.example.yaml`. Unlike the earlier placeholder state, the wrappers now connect recording provenance, dataset/checkpoint contracts, ACT inference, physical episode records, camera media, and manual review. The remaining gate is real-device and real-task acceptance, not a software claim that the loop has already succeeded.
+The mock-first `evaluation.yaml`, `robot.yaml`, and `camera.yaml` remain mock configs; `scripts/evaluate.py` is still the synthetic evaluation path. The explicit physical configs live separately in `teleoperation.example.yaml`, `recording.example.yaml`, `training.example.yaml`, and `rollout.example.yaml`. Unlike the earlier placeholder state, the wrappers now connect live teleoperation, recording provenance, dataset/checkpoint contracts, ACT inference, physical episode records, camera media, and manual review. The remaining gate is real-device and real-task acceptance, not a software claim that the loop has already succeeded.
 
 ## Start from the right checkout
 
@@ -55,7 +55,8 @@ Use this to stop at a useful checkpoint rather than assuming one evening include
 - [ ] Run LaundryBench `make host-check PYTHON="$LB_PYTHON"` from its dedicated environment, `make lerobot-check PYTHON="$(command -v python)"` from the activated LeRobot environment, and the mock UI loop. Run record/train/rollout dry-runs as each prerequisite becomes available: recording plan before capture, training plan only after a completed dataset/manifest, rollout plan only after a finalized local checkpoint.
 - [ ] Identify which physical arm is the **leader** and which is the **follower**; map both different serial ports and calibration IDs. If you do not have the leader arm or another calibrated control device, stop before teleoperation/recording: follower-only control is not enough for the demonstrated native recording command.
 - [ ] Enumerate the external camera without moving the robot; record index/path, supported resolution/FPS, and a fresh test frame. Put the camera above the table with the full object and destination visible.
-- [ ] Verify LeRobot IDs match existing calibration files; verify each port is stable; verify the chosen `front` camera key, index, resolution, and FPS can be opened. Do not run calibration.
+- [ ] Verify LeRobot IDs match existing calibration files; verify each port is stable; verify the chosen `front` and optional `third_person` camera keys, indices, resolutions, and FPS can be opened. Do not run calibration just because a camera was mounted.
+- [ ] Run the bounded two-camera teleoperation plan and, with an operator present, the live Rerun check. Use software `rotation: 180` for an inverted third-person mount; keep the third-person stream operator-only until the dataset contract is intentionally changed.
 - [ ] With a clear work area and operator present, perform a brief, bounded **leader-driven teleoperation check** only after confirming roles, ports, IDs, and stop method. Stop at once if direction, tracking, or camera image is unexpected.
 - [ ] Only after preflight passes, use the supervised recorder for the first bounded leader-driven movement and capture 2 smoke demonstrations to a new local-only dataset. Stop immediately if direction, tracking, or camera image is unexpected; inspect every episode. Task outcomes remain pending until human review.
 - [ ] If a compatible Linux NVIDIA host/checkpoint is ready, run the bounded LaundryBench rollout under direct supervision, then label every episode in the UI and compare its reviewed-only metrics/report with a compatible baseline. Otherwise stop after recording and schedule training separately.
@@ -64,6 +65,23 @@ Use this to stop at a useful checkpoint rather than assuming one evening include
 ## Phase 0 — establish the two environments
 
 Run from the repository root. Keep the LaundryBench developer environment separate from the LeRobot environment you already installed. Do not create or install into `.venv` or `.venv-lerobot`. The example below stops if its dedicated path already exists; choose a different unused path, or inspect the existing environment and explicitly update `LB_ENV` after confirming it is the LaundryBench environment. Python 3.11 or newer is required for this project setup.
+
+On Intel macOS, the repository provides a pinned native edge profile for the
+serial/camera/recording side of this playbook. It uses PyAV rather than
+TorchCodec because TorchCodec has no Intel-macOS wheel; ACT training remains a
+Linux/NVIDIA `Dockerfile.train` job. Recreate the edge environment before a
+new hardware session:
+
+```bash
+python3 projects/laundrybench/scripts/bootstrap_edge_env.py \
+  --venv /absolute/path/to/laundrybench-lerobot-edge
+EDGE_PYTHON=/absolute/path/to/laundrybench-lerobot-edge/bin/python
+make host-check PYTHON="$EDGE_PYTHON"
+make lerobot-check PYTHON="$EDGE_PYTHON"
+```
+
+The edge bootstrap is the canonical reboot/recovery path. It does not install
+or change calibration files, datasets, checkpoints, or camera permissions.
 
 ```bash
 # Dedicated project environment; refuse to modify an existing environment.
@@ -238,6 +256,49 @@ Use local environment discovery to write down the exact fields, but do not modif
 | LaundryBench revision | `git rev-parse HEAD` plus uncommitted changes noted |
 
 **Checkpoint:** both physical arms identified separately, both matching calibration IDs found, permissions allow non-root serial access, and the camera finder sees a live stream at the selected profile. No motion has occurred.
+
+### Run live two-camera teleoperation with software rotation
+
+`teleoperate.py` is the versioned live-observability entry point. It delegates
+robot and camera mechanics to LeRobot, validates the selected environment and
+ID-matched calibration files, and defaults to a dry-run. Camera `rotation` is
+an OpenCV quarter-turn (`0`, `90`, `180`, or `270`) applied in software. The
+checked-in example maps the mounted arm camera to `front` at index `1` and the
+overhead C920 to `third_person` at index `0`, with `third_person.rotation: 180`.
+Do not include the iPhone or FaceTime camera in this config.
+
+The `third_person` stream is currently operator evidence only. The recording
+contract remains one named `front` camera, so adding a second dataset feature
+requires a separate protocol change and retraining rather than a silent config
+edit.
+
+Copy the example to a private file and replace the ports, IDs, calibration
+paths, and selected LeRobot Python path with the values from this session:
+
+```bash
+cd projects/laundrybench
+LB_PYTHON="$HOME/.venvs/laundrybench-review/bin/python"
+cp configs/teleoperation.example.yaml /tmp/teleoperation.home.yaml
+# Edit /tmp/teleoperation.home.yaml with the observed device and environment values.
+"$LB_PYTHON" scripts/teleoperate.py --config /tmp/teleoperation.home.yaml
+```
+
+The dry-run prints the exact shell-free argv and the JSON camera mapping. For
+the physical check, keep the work area clear, stay beside the follower with a
+physical stop available, and use the bounded duration in the config:
+
+```bash
+"$LB_PYTHON" scripts/teleoperate.py \
+  --config /tmp/teleoperation.home.yaml \
+  --execute --supervised
+```
+
+This validates live leader/follower tracking and both Rerun views; it does not
+record a dataset or prove task success. A camera mount does not itself require
+arm recalibration. Recalibrate the follower and leader only if the neutral
+pose, direction, joint limits, or ID-matched calibration files fail the
+read-only checks; back up the existing calibration files first and do not
+accept an unexpected calibration prompt during teleoperation.
 
 ## Phase 3 — configure and record supervised demonstrations
 

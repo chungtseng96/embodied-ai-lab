@@ -7,6 +7,7 @@ import importlib.metadata
 import json
 import math
 import os
+import platform
 import shutil
 import subprocess
 import sys
@@ -20,6 +21,15 @@ def test_cpu_act_checkpoint_processors_and_laundrybench_adapter(tmp_path: Path) 
     pytest.importorskip("lerobot", reason="optional ACT smoke needs LeRobot")
     np = pytest.importorskip("numpy", reason="optional ACT smoke needs NumPy")
 
+    if sys.platform == "darwin" and platform.machine().lower() in {"x86_64", "amd64"}:
+        pytest.skip("Intel macOS uses the PyAV edge profile; TorchCodec ACT smoke runs on Linux")
+    try:
+        torchcodec_version = importlib.metadata.version("torchcodec")
+    except importlib.metadata.PackageNotFoundError:
+        pytest.skip("optional ACT smoke needs the Linux TorchCodec runtime")
+    if not torch.__version__.startswith("2.7.1"):
+        pytest.skip("optional ACT smoke requires the pinned PyTorch 2.7.1 runtime")
+
     from lerobot.configs.types import FeatureType, PolicyFeature
     from lerobot.policies import make_pre_post_processors
     from lerobot.policies.act.configuration_act import ACTConfig
@@ -31,8 +41,7 @@ def test_cpu_act_checkpoint_processors_and_laundrybench_adapter(tmp_path: Path) 
     from laundrybench.types import Observation
 
     assert importlib.metadata.version("lerobot") == "0.6.1"
-    assert importlib.metadata.version("torchcodec") in {"0.5", "0.5.0"}
-    assert torch.__version__.startswith("2.7.1")
+    assert torchcodec_version in {"0.5", "0.5.0"}
     assert not torch.cuda.is_available()
     train_help = subprocess.run(
         [sys.executable, "-m", "lerobot.scripts.lerobot_train", "--help"],

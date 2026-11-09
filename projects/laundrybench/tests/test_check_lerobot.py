@@ -111,6 +111,7 @@ def test_main_prints_structured_json_and_fails_when_required_check_fails(
 def test_collect_status_rejects_a_non_pinned_lerobot_version(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
+    monkeypatch.setattr(check_lerobot, "_is_intel_macos", lambda: False)
     monkeypatch.setattr(check_lerobot.metadata, "version", lambda _: "0.5.0")
     monkeypatch.setattr(
         check_lerobot,
@@ -135,6 +136,7 @@ def test_collect_status_rejects_a_non_pinned_lerobot_version(
 def test_required_runtime_failures_control_overall_status(
     monkeypatch: pytest.MonkeyPatch, ffmpeg_ok: bool, imports_ok: bool,
 ) -> None:
+    monkeypatch.setattr(check_lerobot, "_is_intel_macos", lambda: False)
     monkeypatch.setattr(check_lerobot.sys, "version_info", (3, 12, 0))
     monkeypatch.setattr(check_lerobot.metadata, "version", lambda _: "0.6.1")
     monkeypatch.setattr(
@@ -149,3 +151,31 @@ def test_required_runtime_failures_control_overall_status(
     assert status["ok"] is (ffmpeg_ok and imports_ok)
     assert status["lerobot"]["importable"] is imports_ok
     assert status["checks"]["hardware"]["status"] == "warning"
+
+
+def test_intel_macos_uses_pyav_edge_runtime(monkeypatch: pytest.MonkeyPatch) -> None:
+    # CI runs stock Python 3.11; the python check must not decide this test.
+    monkeypatch.setattr(check_lerobot.sys, "version_info", (3, 12, 0))
+    monkeypatch.setattr(check_lerobot.sys, "platform", "darwin")
+    monkeypatch.setattr(check_lerobot.platform, "machine", lambda: "x86_64")
+    monkeypatch.setattr(check_lerobot.metadata, "version", lambda _: "0.6.1")
+    monkeypatch.setattr(
+        check_lerobot,
+        "_version_command",
+        lambda command, *args: {"ok": False, "version": None, "error": "ffmpeg not found"}
+        if command == "ffmpeg"
+        else {"ok": True, "version": "lerobot-info 0.6.1", "error": None},
+    )
+    monkeypatch.setattr(
+        check_lerobot,
+        "_probe_pyav_act",
+        lambda: {"ok": True, "torch_version": "2.2.2", "av_version": "15.1.0"},
+    )
+
+    status = check_lerobot.collect_status()
+
+    assert status["ok"] is True
+    assert status["checks"]["ffmpeg"]["status"] == "warning"
+    assert status["checks"]["ffmpeg"]["required"] is False
+    assert status["checks"]["torch_codec"]["video_backend"] == "pyav"
+    assert status["checks"]["torch_codec"]["runtime_profile"] == "macos-x86_64-edge"

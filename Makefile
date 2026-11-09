@@ -1,8 +1,9 @@
 PYTHON ?= $(if $(wildcard .venv/bin/python),.venv/bin/python,python3)
 PYTHON_CMD := $(if $(findstring /,$(PYTHON)),$(abspath $(PYTHON)),$(PYTHON))
 PROJECT := projects/laundrybench
+EDGE_VENV ?= .venv-lerobot-edge
 
-.PHONY: install test demo lint check smoke factory-test factory-dispatch lerobot-check host-check frontend-install frontend-check web-demo web
+.PHONY: install test demo lint check smoke factory-test factory-dispatch lerobot-check host-check edge-env frontend-install frontend-check web-demo web
 
 install:
 	cd $(PROJECT) && $(PYTHON_CMD) -m pip install -e ".[dev]"
@@ -36,6 +37,9 @@ lerobot-check:
 
 host-check:
 	$(PYTHON_CMD) $(PROJECT)/scripts/check_host_setup.py
+
+edge-env:
+	$(PYTHON_CMD) $(PROJECT)/scripts/bootstrap_edge_env.py --venv $(EDGE_VENV)
 
 frontend-install:
 	npm ci --prefix $(PROJECT)/frontend
