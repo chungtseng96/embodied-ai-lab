@@ -3,7 +3,7 @@ PYTHON_CMD := $(if $(findstring /,$(PYTHON)),$(abspath $(PYTHON)),$(PYTHON))
 PROJECT := projects/laundrybench
 EDGE_VENV ?= .venv-lerobot-edge
 
-.PHONY: install test demo lint check smoke factory-test factory-dispatch lerobot-check host-check edge-env frontend-install frontend-check web-demo web
+.PHONY: install test demo lint check smoke factory-test factory-dispatch lerobot-check host-check edge-env frontend-install frontend-check web-demo web operator-ui
 
 install:
 	cd $(PROJECT) && $(PYTHON_CMD) -m pip install -e ".[dev]"
@@ -53,3 +53,6 @@ web-demo:
 
 web:
 	$(PYTHON_CMD) $(PROJECT)/scripts/serve.py --outputs-root $(PROJECT)/outputs --frontend-dir $(PROJECT)/frontend/dist
+
+operator-ui:
+	$(PYTHON_CMD) $(PROJECT)/scripts/run_operator_ui.py --open-browser

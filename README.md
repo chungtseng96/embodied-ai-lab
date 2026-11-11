@@ -49,6 +49,12 @@ Open `http://127.0.0.1:8765`. Synthetic runs verify software behavior; they do n
 establish robot performance. For recording, training, and physical rollout, follow
 the [operator playbook](projects/laundrybench/docs/playbooks/so101-home-feedback-loop.md).
 
+For the physical operator dashboard, run `make operator-ui`. This starts the
+locally installed Phosphobot service on `http://127.0.0.1:8020` and opens it in
+the browser. It is a local web app rather than a separate native desktop
+application; the [operator UI guide](projects/laundrybench/docs/playbooks/phosphobot-operator-ui.md)
+records the hardware mapping and safety boundary.
+
 ## Repository structure
 
 | Path | Responsibility |
