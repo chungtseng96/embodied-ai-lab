@@ -2,8 +2,10 @@ PYTHON ?= $(if $(wildcard .venv/bin/python),.venv/bin/python,python3)
 PYTHON_CMD := $(if $(findstring /,$(PYTHON)),$(abspath $(PYTHON)),$(PYTHON))
 PROJECT := projects/laundrybench
 EDGE_VENV ?= .venv-lerobot-edge
+LELAB_PYTHON ?= .venv-lelab/bin/python
+LEROBOT_PYTHON ?= .venv-lerobot/bin/python
 
-.PHONY: install test demo lint check smoke factory-test factory-dispatch lerobot-check host-check edge-env frontend-install frontend-check web-demo web operator-ui
+.PHONY: install test demo lint check smoke factory-test factory-dispatch lerobot-check host-check edge-env frontend-install frontend-check web-demo web operator-ui lelab-ui
 
 install:
 	cd $(PROJECT) && $(PYTHON_CMD) -m pip install -e ".[dev]"
@@ -56,3 +58,6 @@ web:
 
 operator-ui:
 	$(PYTHON_CMD) $(PROJECT)/scripts/run_operator_ui.py --open-browser
+
+lelab-ui:
+	$(PYTHON_CMD) $(PROJECT)/scripts/run_lelab.py --lelab-python $(LELAB_PYTHON) --lerobot-python $(LEROBOT_PYTHON) --no-open
