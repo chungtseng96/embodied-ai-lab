@@ -1518,9 +1518,14 @@ export default function App({
           <span>
             Workspace <span className="slash">/</span> Experiments
           </span>
-          <span className="local-label">
-            <span />
-            {readOnly ? "STATIC SHOWCASE" : "LOCAL REVIEW"}
+          <span className="topbar-actions">
+            <a className="topbar-operator-link" href="/operator">
+              Live telemetry ↗
+            </a>
+            <span className="local-label">
+              <span />
+              {readOnly ? "STATIC SHOWCASE" : "LOCAL REVIEW"}
+            </span>
           </span>
         </div>
         {loading ? (

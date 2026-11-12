@@ -4,6 +4,9 @@
 | --- | --- |
 | Inspect the project and current milestones | [Project overview](../README.md), [roadmap](../ROADMAP.md) |
 | Set up and operate a calibrated SO-101 | [Operator playbook](playbooks/so101-home-feedback-loop.md) |
+| Use the LeRobot browser operator UI | [LeLab operator UI](playbooks/lelab-operator-ui.md) |
+| Watch live follower joint telemetry | [Live operator telemetry](playbooks/live-operator-telemetry.md) |
+| Use the Phosphobot fallback dashboard | [Phosphobot operator UI](playbooks/phosphobot-operator-ui.md) |
 | Understand component boundaries | [V1 architecture](architecture/v1-architecture.md), [diagrams](architecture/diagrams/README.md) |
 | Review design decisions | [Architecture decisions](architecture/decisions/) |
 | Configure development and training hosts | [Development environment](architecture/development-environment.md), [readiness plan](plans/so101-readiness.md) |

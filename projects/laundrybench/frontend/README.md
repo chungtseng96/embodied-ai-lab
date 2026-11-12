@@ -1,8 +1,11 @@
-# LaundryBench experiment review UI
+# LaundryBench experiment review and operator UI
 
 A React + TypeScript operator frontend for the local Python artifact server.
 It reads actual experiment artifacts, compares runs, inspects per-episode
-traces, and saves human review labels. There are no robot motion controls.
+traces, and saves human review labels. It also has a read-only `/operator`
+route that displays the follower arm's live joint telemetry from LeLab. Robot
+motion and camera control remain in LeLab; this frontend never sends movement
+commands.
 
 ## Run the complete application
 
@@ -21,6 +24,15 @@ npm run build --prefix projects/laundrybench/frontend
 Open the URL printed by the Python server. Generate a mock experiment with
 `make demo` if the outputs directory is empty. Mock results are clearly marked
 and have no physical-performance meaning.
+
+## Live operator telemetry
+
+Start LeLab first, then open the built or development frontend at
+`/operator`. The dashboard defaults to `http://127.0.0.1:8000` for LeLab; use
+`/operator?lelab=http%3A%2F%2F127.0.0.1%3A8000` to make the endpoint explicit.
+It shows the six follower joint positions, WebSocket freshness, LeLab status,
+and a bring-up checklist. A live frame is only available while LeLab
+teleoperation is active. The dashboard is intentionally read-only.
 
 For frontend development, keep the API server on port 8765 and run
 `npm run dev --prefix projects/laundrybench/frontend` in a second terminal.
