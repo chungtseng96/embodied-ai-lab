@@ -1,4 +1,4 @@
-# EXP-004 — Compact block stacking
+# EXP-004 — Four-piece Jenga stacking
 
 **Date:** 2026-11-13  
 **Status:** Planned  
@@ -7,7 +7,7 @@
 
 ## Question
 
-Can a compact two-block stacking task validate LaundryBench's demonstration,
+Can stacking four Jenga pieces validate LaundryBench's demonstration,
 ACT training, bounded rollout, and evidence-review workflow when there is not
 enough workspace for the planned sock-sorting task?
 
@@ -17,15 +17,15 @@ sorting performance.
 
 ## Hypothesis
 
-A visually simple, short-range pick-and-place task will make it possible to
-collect dynamic demonstrations in the current workspace and expose grasp,
-placement, camera, and policy-contract failures before expanding to a larger
-task.
+A visually simple, short-range multi-step stacking task will make it possible
+to collect dynamic demonstrations in the current workspace and expose grasp,
+placement, stack-stability, camera, and policy-contract failures before
+expanding to a larger task.
 
 ## Baseline
 
 - policy/model: supervised leader teleoperation for data collection; no trained checkpoint yet
-- dataset: planned private local `compact_block_stack_v1` dataset; not yet recorded
+- dataset: planned private local `jenga_stack_v1` dataset; not yet recorded
 - code/config version: exact repository commit and LeRobot `0.6.1` environment recorded in the run manifest
 - evaluation conditions: tabletop scene, two lightweight blocks, arm-mounted `front` camera for policy input, overhead `third_person` camera for operator evidence only
 
@@ -34,13 +34,16 @@ task.
 Use the following task and protocol identities in the copied recording,
 training, and rollout configs:
 
-- task ID: `compact_block_stack_v1`
-- protocol ID: `compact_block_stack_collection`
-- task text: “Pick up one block from the marked start zone and place it on the base block.”
+- task ID: `jenga_stack_v1`
+- protocol ID: `jenga_stack_collection`
+- task text: “Pick up four Jenga pieces from the marked pickup positions and stack them bottom-to-top at the marked target.”
 
-Start with two large or lightweight blocks, a fixed base position, and a
-marked start zone. Do not begin with a full Jenga tower or small medication
-items. Keep this dataset separate from the future `sock_sorting_v1` dataset.
+Start with four standard Jenga pieces, four marked pickup positions, and one
+marked target position. Use a fixed order, such as left-to-right: place the
+first piece at the target, then place the remaining three pieces on the
+growing stack. Do not add a fifth piece, randomize the order, or use small
+medication items in the initial task. Keep this dataset separate from the
+future `sock_sorting_v1` dataset.
 
 The arm-mounted front camera remains the only policy camera. The overhead
 camera is operator evidence only and must not be added to the current
@@ -50,7 +53,9 @@ one-camera ACT contract. Do not use the built-in FaceTime or iPhone cameras.
 
 ### Phase 0 — recording and contract smoke
 
-1. Place the base and one block in marked positions on a clear tabletop.
+1. Place four Jenga pieces in marked pickup positions on a clear tabletop.
+   Keep the target position within the calibrated follower's comfortable
+   workspace and leave room for the finished four-piece stack.
 2. Confirm the calibrated leader/follower roles, camera profile, and physical stop path.
 3. Stop any active LeLab teleoperation before starting the LaundryBench recorder; the recorder must own the serial ports and policy camera.
 4. Copy `configs/recording.example.yaml` to a private local config and replace all ports, IDs, calibration paths, camera values, absolute dataset paths, and task text.
@@ -62,7 +67,8 @@ one-camera ACT contract. Do not use the built-in FaceTime or iPhone cameras.
      --config /tmp/recording.block-stack.yaml
    ```
 
-6. With an operator present at the follower, record two to five short episodes:
+6. With an operator present at the follower, record two to five short episodes
+   of the complete four-piece sequence:
 
    ```bash
    .venv-lerobot/bin/python \
@@ -77,19 +83,20 @@ the six-joint state/action contract matches the selected LeRobot version.
 
 ### Phase 1 — initial demonstration set
 
-Collect approximately 20–30 consistent successful demonstrations with the
-same task text and camera contract. Keep the first demonstrations nearly
-identical; introduce small block-position and orientation variations only
-after the fixed-layout motion is repeatable. Discard episodes with camera
-loss, invalid resets, accidental contact, or operator intervention rather
-than treating them as successful examples.
+Collect approximately 20–30 consistent successful demonstrations of the
+complete four-piece sequence with the same task text and camera contract.
+Keep the first demonstrations nearly identical; introduce small pickup-
+position and piece-orientation variations only after the fixed-layout motion
+is repeatable. Discard episodes with camera loss, invalid resets, accidental
+contact, stack collapse, or operator intervention rather than treating them
+as successful examples.
 
 Fingerprint the completed local dataset before training:
 
 ```bash
 .venv-lerobot/bin/python \
   projects/laundrybench/scripts/train.py \
-  --fingerprint-dataset /absolute/path/to/compact_block_stack_v1
+  --fingerprint-dataset /absolute/path/to/jenga_stack_v1
 ```
 
 ### Phase 2 — policy validation
@@ -102,8 +109,8 @@ Fingerprint the completed local dataset before training:
 3. Require a local checkpoint with `policy_contract.json` and matching saved
    processor files before rollout.
 4. Copy `configs/rollout.example.yaml` and configure one episode, a short
-   timeout, the same front-camera contract, and a conservative normalized
-   `max_relative_target` such as `0.25`.
+   timeout long enough for four placements, the same front-camera contract,
+   and a conservative normalized `max_relative_target` such as `0.25`.
 5. Run the rollout dry-run:
 
    ```bash
@@ -128,15 +135,16 @@ Fingerprint the completed local dataset before training:
 
 ### Success definition
 
-An episode is successful only when the policy releases the block, the block
-remains fully supported on the base for at least two seconds, the base stays
-inside its marked area, and no human intervention is required.
+An episode is successful only when all four pieces have been picked and
+released in the fixed order, the completed stack remains upright and fully
+supported at the marked target for at least two seconds, and no human
+intervention is required.
 
 ### Held-out conditions
 
-After the fixed-layout policy is stable, evaluate small changes to block
-position and orientation. Expand to a three-block tower only after the
-two-block task passes under the same review protocol.
+After the fixed-layout four-piece policy is stable, evaluate small changes to
+pickup position and piece orientation. Do not expand the task sequence or
+return to sock sorting until the four-piece result has been reviewed.
 
 ### Intervention policy
 
@@ -156,7 +164,7 @@ and its outcome and failure category are saved in the UI.
 ## Failure breakdown
 
 Pending physical demonstrations. Classify failures separately as grasp,
-placement/alignment, block stability, camera/evidence quality, policy timing,
+placement/alignment, stack stability, camera/evidence quality, policy timing,
 or operator intervention.
 
 ## Evidence
@@ -174,8 +182,8 @@ demonstrations, training run, or physical policy rollout are logged here.
 
 ## What to try next
 
-- If two-block stacking passes, collect varied demonstrations and evaluate a
-  three-block stack.
+- If four-piece stacking passes, collect varied demonstrations before changing
+  the task sequence.
 - If stacking fails, select the dominant reviewed failure and collect targeted
   demonstrations before changing the model or hardware.
 - Return to `sock_sorting_v1` once the workspace and evidence loop support it.
